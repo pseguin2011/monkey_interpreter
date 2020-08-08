@@ -25,16 +25,22 @@ impl Lexer {
 
         let tok: Option<Token> = 
             match self.ch.chars().next() {
-                Some('=')         => Some(Token::new(token::ASSIGN,       &self.ch)),
-                Some(';')         => Some(Token::new(token::SEMICOLON,    &self.ch)),
-                Some('(')         => Some(Token::new(token::LPAREN,       &self.ch)),
-                Some(')')         => Some(Token::new(token::RPAREN,       &self.ch)),
-                Some(',')         => Some(Token::new(token::COMMA,        &self.ch)),
-                Some('+')         => Some(Token::new(token::PLUS,         &self.ch)),
-                Some('{')         => Some(Token::new(token::LBRACE,       &self.ch)),
-                Some('}')         => Some(Token::new(token::RBRACE,       &self.ch)),
-                Some('\\')        => Some(Token::new(token::EOF,          &self.ch)),
-                Some('a'..='z')   => {
+                Some('=')       => Some(Token::new(token::ASSIGN,       &self.ch)),
+                Some(';')       => Some(Token::new(token::SEMICOLON,    &self.ch)),
+                Some('(')       => Some(Token::new(token::LPAREN,       &self.ch)),
+                Some(')')       => Some(Token::new(token::RPAREN,       &self.ch)),
+                Some(',')       => Some(Token::new(token::COMMA,        &self.ch)),
+                Some('+')       => Some(Token::new(token::PLUS,         &self.ch)),
+                Some('-')       => Some(Token::new(token::MINUS,        &self.ch)),
+                Some('!')       => Some(Token::new(token::BANG,         &self.ch)),
+                Some('/')       => Some(Token::new(token::SLASH,        &self.ch)),
+                Some('*')       => Some(Token::new(token::ASTERISK,     &self.ch)),
+                Some('<')       => Some(Token::new(token::LT,           &self.ch)),
+                Some('>')       => Some(Token::new(token::GT,           &self.ch)),
+                Some('{')       => Some(Token::new(token::LBRACE,       &self.ch)),
+                Some('}')       => Some(Token::new(token::RBRACE,       &self.ch)),
+                Some('\\')      => Some(Token::new(token::EOF,          &self.ch)),
+                Some('a'..='z') => {
                     let keywords: std::collections::HashMap<&str, &str> = 
                         [("fn", token::FUNCTION), ("let", token::LET)]
                             .iter()
@@ -52,8 +58,8 @@ impl Lexer {
                     tok.token_type = lookup_identifier(&tok.literal);
                     return Some(tok);
                 },
-                Some('0'..='9')   => return Some(Token::new(token::INT,   self.read_number())),
-                _                 => Some(Token::new(token::ILLEGAL,      &self.ch)),
+                Some('0'..='9') => return Some(Token::new(token::INT,   self.read_number())),
+                _               => Some(Token::new(token::ILLEGAL,      &self.ch)),
             };
         self.read_char();
         tok
@@ -188,6 +194,89 @@ fn test_next_token_2() {
         (token::EOF,        "\\"),
     ];
 
+    let mut l = Lexer::new(input);
+
+    for (i, (expected_token, expected_literal)) in tests.iter().enumerate() {
+        if let Some(tok) = l.next_token() {
+            assert_eq!(
+                &tok.token_type, expected_token,
+                "tests[{}] - tokentype wrong. expected={}, got={} with value {}",
+                i, expected_token, tok.token_type, tok.literal,
+            );
+            assert_eq!(
+                &tok.literal, expected_literal,
+                "tests[{}] - literal wrong. expected={}, got={}",
+                i, expected_literal, tok.literal,
+            );
+        }
+    }
+}
+
+#[test]
+fn test_next_token_3() {
+    let input = "
+        let five = 5;
+        let ten = 10;
+        let add = fn(x, y) {
+        x + y;
+        };
+        let result = add(five, ten);
+        !-/*5;
+        5 < 10 > 5;";
+    let tests: [(&str, &str); 49] =
+    [
+        (token::LET,        "let"),
+        (token::IDENT,      "five"),
+        (token::ASSIGN,     "="),
+        (token::INT,        "5"),
+        (token::SEMICOLON,  ";"),
+        (token::LET,        "let"),
+        (token::IDENT,      "ten"),
+        (token::ASSIGN,     "="),
+        (token::INT,        "10"),
+        (token::SEMICOLON,  ";"),
+        (token::LET,        "let"),
+        (token::IDENT,      "add"),
+        (token::ASSIGN,     "="),
+        (token::FUNCTION,   "fn"),
+        (token::LPAREN,     "("),
+        (token::IDENT,      "x"),
+        (token::COMMA,      ","),
+        (token::IDENT,      "y"),
+        (token::RPAREN,     ")"),
+        (token::LBRACE,     "{"),
+        (token::IDENT,      "x"),
+        (token::PLUS,       "+"),
+        (token::IDENT,      "y"),
+        (token::SEMICOLON,  ";"),
+        (token::RBRACE,     "}"),
+        (token::SEMICOLON,  ";"),
+        (token::LET,        "let"),
+        (token::IDENT,      "result"),
+        (token::ASSIGN,     "="),
+        (token::IDENT,      "add"),
+        (token::LPAREN,     "("),
+        (token::IDENT,      "five"),
+        (token::COMMA,      ","),
+        (token::IDENT,      "ten"),
+        (token::RPAREN,     ")"),
+        (token::SEMICOLON,  ";"),
+        (token::BANG,       "!"),
+        (token::MINUS,      "-"),
+        (token::SLASH,      "/"),
+        (token::ASTERISK,   "*"),
+        (token::INT,        "5"),
+        (token::SEMICOLON,  ";"),
+        (token::INT,        "5"),
+        (token::LT,         "<"),
+        (token::INT,        "10"),
+        (token::GT,         ">"),
+        (token::INT,        "5"),
+        (token::SEMICOLON,  ";"),
+        (token::EOF,        "\\"),
+    ];
+        // !-/*5;
+        // 5 < 10 > 5;";
     let mut l = Lexer::new(input);
 
     for (i, (expected_token, expected_literal)) in tests.iter().enumerate() {

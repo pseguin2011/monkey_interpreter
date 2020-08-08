@@ -14,6 +14,12 @@ pub const LBRACE: &str = "{";
 pub const RBRACE: &str = "}";
 pub const FUNCTION: &str = "FUNCTION";
 pub const LET: &str = "LET";
+pub const MINUS: &str = "-";
+pub const BANG: &str = "!";
+pub const ASTERISK: &str = "*";
+pub const SLASH: &str = "/";
+pub const LT: &str = "<";
+pub const GT: &str = ">";
 
 #[derive(Debug)]
 pub struct Token {
