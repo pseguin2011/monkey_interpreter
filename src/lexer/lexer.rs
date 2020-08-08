@@ -42,10 +42,18 @@ impl Lexer {
                 Some('\\')      => Some(Token::new(token::EOF,          &self.ch)),
                 Some('a'..='z') => {
                     let keywords: std::collections::HashMap<&str, &str> = 
-                        [("fn", token::FUNCTION), ("let", token::LET)]
-                            .iter()
-                            .cloned()
-                            .collect();
+                        [
+                            ("fn",      token::FUNCTION), 
+                            ("let",     token::LET), 
+                            ("true",    token::TRUE), 
+                            ("false",   token::FALSE),
+                            ("if",      token::IF),
+                            ("else",    token::ELSE),
+                            ("return",  token::RETURN),
+                        ]
+                        .iter()
+                        .cloned()
+                        .collect();
                     let lookup_identifier = |id: &str| -> String {
                         if let Some(ident) = keywords.get(id) {
                             (&ident).to_string()
@@ -142,6 +150,7 @@ fn test_next_token() {
         }
     }
 }
+
 #[test]
 fn test_next_token_2() {
     let input = "
@@ -275,8 +284,7 @@ fn test_next_token_3() {
         (token::SEMICOLON,  ";"),
         (token::EOF,        "\\"),
     ];
-        // !-/*5;
-        // 5 < 10 > 5;";
+
     let mut l = Lexer::new(input);
 
     for (i, (expected_token, expected_literal)) in tests.iter().enumerate() {
@@ -285,6 +293,54 @@ fn test_next_token_3() {
                 &tok.token_type, expected_token,
                 "tests[{}] - tokentype wrong. expected={}, got={} with value {}",
                 i, expected_token, tok.token_type, tok.literal,
+            );
+            assert_eq!(
+                &tok.literal, expected_literal,
+                "tests[{}] - literal wrong. expected={}, got={}",
+                i, expected_literal, tok.literal,
+            );
+        }
+    }
+}
+
+
+#[test]
+fn test_next_token_4() {
+
+    let input = "if (5 < 10) {
+        return true;
+        } else {
+        return false;
+        }";
+    let tests: [(&str, &str); 18] = [
+        (token::IF,     "if"),
+        (token::LPAREN,     "("),
+        (token::INT,        "5"),
+        (token::LT,         "<"),
+        (token::INT,        "10"),
+        (token::RPAREN,     ")"),
+        (token::LBRACE,     "{"),
+        (token::RETURN,     "return"),
+        (token::TRUE,       "true"),
+        (token::SEMICOLON,  ";"),
+        (token::RBRACE,     "}"),
+        (token::ELSE,       "else"),
+        (token::LBRACE,     "{"),
+        (token::RETURN,     "return"),
+        (token::FALSE,      "false"),
+        (token::SEMICOLON,  ";"),
+        (token::RBRACE,     "}"),
+        (token::EOF,        "\\"),
+    ];
+
+    let mut l = Lexer::new(input);
+
+    for (i, (expected_token, expected_literal)) in tests.iter().enumerate() {
+        if let Some(tok) = l.next_token() {
+            assert_eq!(
+                &tok.token_type, expected_token,
+                "tests[{}] - tokentype wrong. expected={}, got={}",
+                i, expected_token, tok.token_type,
             );
             assert_eq!(
                 &tok.literal, expected_literal,
