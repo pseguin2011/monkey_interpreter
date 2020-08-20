@@ -1,4 +1,4 @@
-pub type TokenType = String;
+pub type TokenType<'a> = &'a str;
 
 pub const ILLEGAL: &str = "ILLEGAL";
 pub const EOF: &str = "EOF";
@@ -6,6 +6,8 @@ pub const EOF: &str = "EOF";
 pub const IDENT: &str = "IDENT";
 pub const INT: &str = "INT";
 
+pub const EQ: &str = "==";
+pub const NOT_EQ: &str = "!=";
 pub const ASSIGN: &str = "=";
 pub const ASTERISK: &str = "*";
 pub const SLASH: &str = "/";
@@ -31,16 +33,16 @@ pub const IF: &str = "IF";
 pub const ELSE: &str = "ELSE";
 pub const RETURN: &str = "RETURN";
 
-#[derive(Debug)]
-pub struct Token {
-    pub token_type: TokenType,
+#[derive(Debug, Clone)]
+pub struct Token<'a> {
+    pub token_type: TokenType<'a>,
     pub literal: String,
 }
 
-impl Token {
-    pub fn new<'a, S: Into<String>>(token_type: S, literal: S) -> Token {
+impl <'a> Token <'a> {
+    pub fn new<S: Into<String>>(token_type: TokenType<'a>, literal: S) -> Token {
         Token {
-            token_type: token_type.into(),
+            token_type,
             literal: literal.into(),
         }
     }

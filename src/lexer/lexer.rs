@@ -20,26 +20,31 @@ impl Lexer {
         lexer
     }
 
-    pub fn next_token(&mut self) -> Option<Token> {
+    pub fn next_token<'b>(&mut self) -> Token<'b> {
         self.skip_whitespaces();
 
-        let tok: Option<Token> = 
+        let tok: Token = 
             match self.ch.chars().next() {
-                Some('=')       => Some(Token::new(token::ASSIGN,       &self.ch)),
-                Some(';')       => Some(Token::new(token::SEMICOLON,    &self.ch)),
-                Some('(')       => Some(Token::new(token::LPAREN,       &self.ch)),
-                Some(')')       => Some(Token::new(token::RPAREN,       &self.ch)),
-                Some(',')       => Some(Token::new(token::COMMA,        &self.ch)),
-                Some('+')       => Some(Token::new(token::PLUS,         &self.ch)),
-                Some('-')       => Some(Token::new(token::MINUS,        &self.ch)),
-                Some('!')       => Some(Token::new(token::BANG,         &self.ch)),
-                Some('/')       => Some(Token::new(token::SLASH,        &self.ch)),
-                Some('*')       => Some(Token::new(token::ASTERISK,     &self.ch)),
-                Some('<')       => Some(Token::new(token::LT,           &self.ch)),
-                Some('>')       => Some(Token::new(token::GT,           &self.ch)),
-                Some('{')       => Some(Token::new(token::LBRACE,       &self.ch)),
-                Some('}')       => Some(Token::new(token::RBRACE,       &self.ch)),
-                Some('\\')      => Some(Token::new(token::EOF,          &self.ch)),
+                Some('=')       => {
+                    if self.peek_char() == '=' {
+                        let mut ch: String = self.ch.to_owned();
+                        self.read_char();
+                        ch.push_str(&self.ch);
+                        Token::new(token::EQ,      &ch)
+                    } else {
+                        Token::new(token::ASSIGN,  &self.ch)
+                    }
+                },
+                Some('!')       => {
+                    if self.peek_char() == '=' {
+                        let mut ch: String = self.ch.to_owned();
+                        self.read_char();
+                        ch.push_str(&self.ch);
+                        Token::new(token::NOT_EQ,  &ch)
+                    } else {
+                        Token::new(token::BANG,    &self.ch)
+                    }
+                },
                 Some('a'..='z') => {
                     let keywords: std::collections::HashMap<&str, &str> = 
                         [
@@ -54,20 +59,34 @@ impl Lexer {
                         .iter()
                         .cloned()
                         .collect();
-                    let lookup_identifier = |id: &str| -> String {
+                    let lookup_identifier = |id: &str| -> &str {
                         if let Some(ident) = keywords.get(id) {
-                            (&ident).to_string()
+                            &ident
                         } else {
-                            token::IDENT.to_string()
+                            token::IDENT
                         }
                     };
                     // type unassigned
                     let mut tok = Token::new(token::ILLEGAL, self.read_identifier());
                     tok.token_type = lookup_identifier(&tok.literal);
-                    return Some(tok);
+                    return tok;
                 },
-                Some('0'..='9') => return Some(Token::new(token::INT,   self.read_number())),
-                _               => Some(Token::new(token::ILLEGAL,      &self.ch)),
+                Some('0'..='9') => return Token::new(token::INT,   self.read_number()),
+                Some(';')       => Token::new(token::SEMICOLON,    &self.ch),
+                Some('(')       => Token::new(token::LPAREN,       &self.ch),
+                Some(')')       => Token::new(token::RPAREN,       &self.ch),
+                Some(',')       => Token::new(token::COMMA,        &self.ch),
+                Some('+')       => Token::new(token::PLUS,         &self.ch),
+                Some('-')       => Token::new(token::MINUS,        &self.ch),
+
+                Some('/')       => Token::new(token::SLASH,        &self.ch),
+                Some('*')       => Token::new(token::ASTERISK,     &self.ch),
+                Some('<')       => Token::new(token::LT,           &self.ch),
+                Some('>')       => Token::new(token::GT,           &self.ch),
+                Some('{')       => Token::new(token::LBRACE,       &self.ch),
+                Some('}')       => Token::new(token::RBRACE,       &self.ch),
+                Some('\\')      => Token::new(token::EOF,          &self.ch),
+                _               => Token::new(token::ILLEGAL,      &self.ch),
             };
         self.read_char();
         tok
@@ -97,12 +116,28 @@ impl Lexer {
     fn read_char(&mut self) {
         if self.read_position >= self.input.len() {
             self.ch = "\\".into();
-        } else if let Some(next_input) = self.input.get(self.read_position..self.read_position + 1) {   
+        } else if let Some(next_input) = self.input.get(self.read_position..=self.read_position) {   
             self.ch = next_input.into();
         }
         self.position = self.read_position;
         self.read_position += 1;
     }
+
+
+    fn peek_char(&self) -> char {
+        if self.read_position >= self.input.len() {
+            return '\\';
+        } else {
+            unsafe {
+                return self
+                    .input
+                    .get_unchecked(self.read_position..=self.read_position)
+                    .chars()
+                    .collect::<Vec<char>>()[0]
+            }
+        }
+    }
+
 
     fn skip_whitespaces(&mut self) {
         while let Some(c) = self.ch.chars().next() {
@@ -136,18 +171,17 @@ fn test_next_token() {
     let mut l = Lexer::new(input);
 
     for (i, (expected_token, expected_literal)) in tests.iter().enumerate() {
-        if let Some(tok) = l.next_token() {
-            assert_eq!(
-                &tok.token_type, expected_token,
-                "tests[{}] - tokentype wrong. expected={}, got={}",
-                i, expected_token, tok.token_type,
-            );
-            assert_eq!(
-                &tok.literal, expected_literal,
-                "tests[{}] - literal wrong. expected={}, got={}",
-                i, expected_literal, tok.literal,
-            );
-        }
+        let tok = l.next_token();
+        assert_eq!(
+            &tok.token_type, expected_token,
+            "tests[{}] - tokentype wrong. expected={}, got={}",
+            i, expected_token, tok.token_type,
+        );
+        assert_eq!(
+            &tok.literal, expected_literal,
+            "tests[{}] - literal wrong. expected={}, got={}",
+            i, expected_literal, tok.literal,
+        );
     }
 }
 
@@ -206,70 +240,27 @@ fn test_next_token_2() {
     let mut l = Lexer::new(input);
 
     for (i, (expected_token, expected_literal)) in tests.iter().enumerate() {
-        if let Some(tok) = l.next_token() {
-            assert_eq!(
-                &tok.token_type, expected_token,
-                "tests[{}] - tokentype wrong. expected={}, got={} with value {}",
-                i, expected_token, tok.token_type, tok.literal,
-            );
-            assert_eq!(
-                &tok.literal, expected_literal,
-                "tests[{}] - literal wrong. expected={}, got={}",
-                i, expected_literal, tok.literal,
-            );
-        }
+        let tok = l.next_token();
+        assert_eq!(
+            &tok.token_type, expected_token,
+            "tests[{}] - tokentype wrong. expected={}, got={} with value {}",
+            i, expected_token, tok.token_type, tok.literal,
+        );
+        assert_eq!(
+            &tok.literal, expected_literal,
+            "tests[{}] - literal wrong. expected={}, got={}",
+            i, expected_literal, tok.literal,
+        );
     }
 }
 
 #[test]
 fn test_next_token_3() {
     let input = "
-        let five = 5;
-        let ten = 10;
-        let add = fn(x, y) {
-        x + y;
-        };
-        let result = add(five, ten);
         !-/*5;
         5 < 10 > 5;";
-    let tests: [(&str, &str); 49] =
+    let tests: [(&str, &str); 13] =
     [
-        (token::LET,        "let"),
-        (token::IDENT,      "five"),
-        (token::ASSIGN,     "="),
-        (token::INT,        "5"),
-        (token::SEMICOLON,  ";"),
-        (token::LET,        "let"),
-        (token::IDENT,      "ten"),
-        (token::ASSIGN,     "="),
-        (token::INT,        "10"),
-        (token::SEMICOLON,  ";"),
-        (token::LET,        "let"),
-        (token::IDENT,      "add"),
-        (token::ASSIGN,     "="),
-        (token::FUNCTION,   "fn"),
-        (token::LPAREN,     "("),
-        (token::IDENT,      "x"),
-        (token::COMMA,      ","),
-        (token::IDENT,      "y"),
-        (token::RPAREN,     ")"),
-        (token::LBRACE,     "{"),
-        (token::IDENT,      "x"),
-        (token::PLUS,       "+"),
-        (token::IDENT,      "y"),
-        (token::SEMICOLON,  ";"),
-        (token::RBRACE,     "}"),
-        (token::SEMICOLON,  ";"),
-        (token::LET,        "let"),
-        (token::IDENT,      "result"),
-        (token::ASSIGN,     "="),
-        (token::IDENT,      "add"),
-        (token::LPAREN,     "("),
-        (token::IDENT,      "five"),
-        (token::COMMA,      ","),
-        (token::IDENT,      "ten"),
-        (token::RPAREN,     ")"),
-        (token::SEMICOLON,  ";"),
         (token::BANG,       "!"),
         (token::MINUS,      "-"),
         (token::SLASH,      "/"),
@@ -288,24 +279,23 @@ fn test_next_token_3() {
     let mut l = Lexer::new(input);
 
     for (i, (expected_token, expected_literal)) in tests.iter().enumerate() {
-        if let Some(tok) = l.next_token() {
-            assert_eq!(
-                &tok.token_type, expected_token,
-                "tests[{}] - tokentype wrong. expected={}, got={} with value {}",
-                i, expected_token, tok.token_type, tok.literal,
-            );
-            assert_eq!(
-                &tok.literal, expected_literal,
-                "tests[{}] - literal wrong. expected={}, got={}",
-                i, expected_literal, tok.literal,
-            );
-        }
+        let tok = l.next_token();
+        assert_eq!(
+            &tok.token_type, expected_token,
+            "tests[{}] - tokentype wrong. expected={}, got={} with value {}",
+            i, expected_token, tok.token_type, tok.literal,
+        );
+        assert_eq!(
+            &tok.literal, expected_literal,
+            "tests[{}] - literal wrong. expected={}, got={}",
+            i, expected_literal, tok.literal,
+        );
     }
 }
 
 
 #[test]
-fn test_next_token_4() {
+fn test_next_token_lt_gt_if_else_return() {
 
     let input = "if (5 < 10) {
         return true;
@@ -336,17 +326,50 @@ fn test_next_token_4() {
     let mut l = Lexer::new(input);
 
     for (i, (expected_token, expected_literal)) in tests.iter().enumerate() {
-        if let Some(tok) = l.next_token() {
-            assert_eq!(
-                &tok.token_type, expected_token,
-                "tests[{}] - tokentype wrong. expected={}, got={}",
-                i, expected_token, tok.token_type,
-            );
-            assert_eq!(
-                &tok.literal, expected_literal,
-                "tests[{}] - literal wrong. expected={}, got={}",
-                i, expected_literal, tok.literal,
-            );
-        }
+        let tok = l.next_token();
+        assert_eq!(
+            &tok.token_type, expected_token,
+            "tests[{}] - tokentype wrong. expected={}, got={}",
+            i, expected_token, tok.token_type,
+        );
+        assert_eq!(
+            &tok.literal, expected_literal,
+            "tests[{}] - literal wrong. expected={}, got={}",
+            i, expected_literal, tok.literal,
+        );
+    }
+}
+
+#[test]
+fn test_next_token_eq_ne() {
+    let input = "
+        10 == 10;
+        10 != 9;";
+    let tests: [(&str, &str); 9] = [
+        (token::INT,        "10"),
+        (token::EQ,         "=="),
+        (token::INT,        "10"),
+        (token::SEMICOLON,  ";"),
+        (token::INT,        "10"),
+        (token::NOT_EQ,     "!="),
+        (token::INT,        "9"),
+        (token::SEMICOLON,  ";"),
+        (token::EOF,        "\\"),
+    ];
+
+    let mut l = Lexer::new(input);
+
+    for (i, (expected_token, expected_literal)) in tests.iter().enumerate() {
+        let tok = l.next_token();
+        assert_eq!(
+            &tok.token_type, expected_token,
+            "tests[{}] - tokentype wrong. expected={}, got={}",
+            i, expected_token, tok.token_type,
+        );
+        assert_eq!(
+            &tok.literal, expected_literal,
+            "tests[{}] - literal wrong. expected={}, got={}",
+            i, expected_literal, tok.literal,
+        );
     }
 }
