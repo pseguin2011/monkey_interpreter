@@ -2,6 +2,7 @@ use crate::token::Token;
 
 pub enum Statements<'a> {
     LetStatement(LetStatement<'a>),
+    ReturnStatement(ReturnStatement<'a>),
 }
 
 pub trait Node {
@@ -28,6 +29,7 @@ impl<'a> Node for Program<'a> {
         if !self.statements.is_empty() {
             match &self.statements[0] {
                 Statements::LetStatement(s) => s.token_literal(),
+                Statements::ReturnStatement(s) => s.token_literal(),
             }
         } else {
             "".into()
@@ -62,6 +64,23 @@ impl <'a> Statement for LetStatement <'a> {
     }
 }
 impl <'a> Node for LetStatement <'a> {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+pub struct ReturnStatement<'a> {
+    pub token: Token<'a>,
+    pub return_value: Option<E>,
+}
+
+impl <'a> Statement for ReturnStatement <'a> {
+    fn statement_node(&self) {
+
+    }
+}
+
+impl <'a> Node for ReturnStatement <'a> {
     fn token_literal(&self) -> String {
         self.token.literal.clone()
     }

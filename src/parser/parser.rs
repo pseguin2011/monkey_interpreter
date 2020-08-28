@@ -1,4 +1,4 @@
-use crate::parser::ast::{Expression, Identifier, LetStatement, Node, Program, Statements};
+use crate::parser::ast::{Expression, Identifier, LetStatement, Node, Program, ReturnStatement, Statements};
 use crate::lexer::Lexer;
 use crate::token::Token;
 use crate::token;
@@ -127,7 +127,20 @@ impl Parser {
     }
 
     fn parse_return_statement(&mut self) -> Option<Statements<'static>> {
-        None
+        let statement;
+        if let Some(return_token) = self.current_token.take() {
+            statement = ReturnStatement {
+                token: return_token,
+                return_value: None,
+            };
+        } else {
+            return None;
+        }
+        self.next_token();
+        while !self.current_token_is(token::SEMICOLON) {
+            self.next_token();
+        }
+        Some(Statements::ReturnStatement(statement))
     }
 
     fn new_program_ast_node() -> Program<'static> {
@@ -161,7 +174,36 @@ fn test_let_statements() {
                     assert_eq!(&stmt.token_literal(), "let");
                     assert_eq!(&stmt.name.value, tt);
                     assert_eq!(&stmt.name.token_literal(), tt);
-                }
+                },
+                _ => println!("Statement is not a let statement"),
+            }
+        }
+    }
+
+}
+
+#[test]
+fn test_return_statements() {
+    let input = "
+        return 5;
+        return 10;
+        return 838383;
+    ";
+
+    let l = Lexer::new(input);
+    let mut p = Parser::new(l);
+    let prog = p.parse_program();
+    check_parser_errors(&p);
+    assert!(prog.is_some(), "parse_program() returned None");
+    if let Some(program) = prog {
+        assert_eq!(program.statements.len(), 3, "program.statements does not contain 3 statements, got: {}", program.statements.len());
+
+        for statement in &program.statements {
+            match statement {
+                Statements::ReturnStatement(stmt) => {
+                    assert_eq!(&stmt.token_literal(), "return");
+                },
+                _ => println!("Statement is not a return statement"),
             }
         }
     }
