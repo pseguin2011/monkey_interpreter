@@ -143,7 +143,6 @@ impl Lexer {
         while let Some(c) = self.ch.chars().next() {
             if c.is_whitespace() {
                 self.read_char();
-                println!("Char is {}", &self.ch);
             } else {
                 break;
             }
