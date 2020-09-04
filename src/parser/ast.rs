@@ -1,8 +1,16 @@
 use crate::token::Token;
 
+#[derive(Debug)]
 pub enum Statements<'a> {
     LetStatement(LetStatement<'a>),
     ReturnStatement(ReturnStatement<'a>),
+    ExpressionStatement(ExpressionStatement<'a>)
+}
+
+#[derive(Debug)]
+pub enum Expressions<'a> {
+    Identifier(Identifier<'a>),
+    InvalidExpression,
 }
 
 pub trait Node {
@@ -17,8 +25,7 @@ pub trait Expression: Node {
     fn expression_node(&self);
 }
 
-type E = Box<dyn Expression>;
-
+#[derive(Debug)]
 pub struct Program<'a> {
     pub statements: Vec<Statements<'a>>,
 }
@@ -28,8 +35,9 @@ impl<'a> Node for Program<'a> {
 
         if !self.statements.is_empty() {
             match &self.statements[0] {
-                Statements::LetStatement(s) => s.token_literal(),
-                Statements::ReturnStatement(s) => s.token_literal(),
+                Statements::LetStatement(s)         => s.token_literal(),
+                Statements::ReturnStatement(s)      => s.token_literal(),
+                Statements::ExpressionStatement(s)  => s.token_literal(),
             }
         } else {
             "".into()
@@ -37,6 +45,7 @@ impl<'a> Node for Program<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct Identifier<'a> {
     pub token: Token<'a>,
     pub value: String,
@@ -52,10 +61,11 @@ impl <'a> Node for Identifier <'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct LetStatement <'a> {
     pub token: Token<'a>,
     pub name:  Identifier<'a>,
-    pub value: Option<E>,
+    pub value: Option<Expressions<'a>>,
 }
 
 impl <'a> Statement for LetStatement <'a> {
@@ -69,9 +79,10 @@ impl <'a> Node for LetStatement <'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct ReturnStatement<'a> {
     pub token: Token<'a>,
-    pub return_value: Option<E>,
+    pub return_value: Option<Expressions<'a>>,
 }
 
 impl <'a> Statement for ReturnStatement <'a> {
@@ -81,6 +92,25 @@ impl <'a> Statement for ReturnStatement <'a> {
 }
 
 impl <'a> Node for ReturnStatement <'a> {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+#[derive(Debug)]
+pub struct ExpressionStatement<'a> {
+    pub token: Token<'a>,
+    pub expression: Option<Expressions<'a>>,
+}
+
+
+impl <'a> Statement for ExpressionStatement <'a> {
+    fn statement_node(&self) {
+
+    }
+}
+
+impl <'a> Node for ExpressionStatement <'a> {
     fn token_literal(&self) -> String {
         self.token.literal.clone()
     }
