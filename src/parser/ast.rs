@@ -10,6 +10,7 @@ pub enum Statements<'a> {
 #[derive(Debug)]
 pub enum Expressions<'a> {
     Identifier(Identifier<'a>),
+    IntegerLiteral(IntegerLiteral<'a>),
     InvalidExpression,
 }
 
@@ -51,7 +52,7 @@ pub struct Identifier<'a> {
     pub value: String,
 }
 
-impl <'a> Expression for Identifier <'a>{
+impl <'a> Expression for Identifier <'a> {
     fn expression_node(&self) {}
 }
 
@@ -60,6 +61,23 @@ impl <'a> Node for Identifier <'a> {
         self.token.literal.clone()
     }
 }
+
+#[derive(Debug)]
+pub struct IntegerLiteral <'a> {
+    pub token: Token<'a>,
+    pub value: u64,
+}
+
+impl <'a> Expression for IntegerLiteral <'a> {
+    fn expression_node(&self) {}
+}
+
+impl <'a> Node for IntegerLiteral <'a> {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
 
 #[derive(Debug)]
 pub struct LetStatement <'a> {
