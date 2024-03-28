@@ -582,9 +582,11 @@ fn test_integer_literal_expression() {
 }
 
 #[test]
-fn test_parsin_prefix_expressions() {
+fn test_parsing_prefix_expressions() {
     let prefix_test_1 = [("!5;", "!", 5), ("-15;", "-", 15)];
     let prefix_test_2 = [("!true;", "!", true), ("!false;", "!", false)];
+    parsing_prefix_expressions_helper(&prefix_test_1);
+    parsing_prefix_expressions_helper(&prefix_test_2);
 }
 
 fn parsing_prefix_expressions_helper(tests: &[(&str, &str, impl Any + Sized)]) {
