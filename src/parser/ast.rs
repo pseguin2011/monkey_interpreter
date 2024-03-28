@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::token::Token;
 
 #[derive(Debug)]
@@ -7,11 +9,22 @@ pub enum Statements<'a> {
     ExpressionStatement(ExpressionStatement<'a>),
 }
 
+impl<'a> ToString for Statements<'a> {
+    fn to_string(&self) -> String {
+        match self {
+            Self::LetStatement(l) => l.to_string(),
+            Self::ReturnStatement(r) => r.to_string(),
+            Self::ExpressionStatement(e) => e.to_string(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Expressions<'a> {
     Identifier(Identifier<'a>),
     IntegerLiteral(IntegerLiteral<'a>),
     PrefixExpression(PrefixExpression<'a>),
+    InfixExpression(InfixExpression<'a>),
     InvalidExpression,
 }
 
@@ -21,6 +34,7 @@ impl<'a> ToString for Expressions<'a> {
             Expressions::Identifier(i) => i.to_string(),
             Expressions::IntegerLiteral(i) => i.to_string(),
             Expressions::PrefixExpression(p) => p.to_string(),
+            Expressions::InfixExpression(i) => i.to_string(),
             Expressions::InvalidExpression => "".into(),
         }
     }
@@ -54,6 +68,16 @@ impl<'a> Node for Program<'a> {
         } else {
             "".into()
         }
+    }
+}
+
+impl<'a> ToString for Program<'a> {
+    fn to_string(&self) -> String {
+        let mut buffer = String::new();
+        for s in &self.statements {
+            buffer.push_str(&s.to_string());
+        }
+        buffer
     }
 }
 
@@ -105,7 +129,7 @@ impl<'a> ToString for IntegerLiteral<'a> {
 pub struct PrefixExpression<'a> {
     pub token: Token<'a>,
     pub operator: String,
-    pub right: Box<Expressions<'a>>,
+    pub right: Rc<Expressions<'a>>,
 }
 
 impl<'a> Expression for PrefixExpression<'a> {
@@ -123,6 +147,36 @@ impl<'a> ToString for PrefixExpression<'a> {
         format!("({}{})", self.operator, self.right.to_string())
     }
 }
+
+#[derive(Debug)]
+pub struct InfixExpression<'a> {
+    pub token: Token<'a>,
+    pub left: Rc<Expressions<'a>>,
+    pub operator: String,
+    pub right: Rc<Expressions<'a>>,
+}
+
+impl<'a> Expression for InfixExpression<'a> {
+    fn expression_node(&self) {}
+}
+
+impl<'a> Node for InfixExpression<'a> {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl<'a> ToString for InfixExpression<'a> {
+    fn to_string(&self) -> String {
+        format!(
+            "({} {} {})",
+            self.left.to_string(),
+            self.operator,
+            self.right.to_string()
+        )
+    }
+}
+
 #[derive(Debug)]
 pub struct LetStatement<'a> {
     pub token: Token<'a>,
@@ -136,6 +190,20 @@ impl<'a> Statement for LetStatement<'a> {
 impl<'a> Node for LetStatement<'a> {
     fn token_literal(&self) -> String {
         self.token.literal.clone()
+    }
+}
+
+impl<'a> ToString for LetStatement<'a> {
+    fn to_string(&self) -> String {
+        match &self.value {
+            Some(v) => format!(
+                "{} {} = {};",
+                self.token_literal(),
+                self.name.to_string(),
+                v.to_string()
+            ),
+            None => format!("{} {};", self.token_literal(), self.name.to_string()),
+        }
     }
 }
 
@@ -155,6 +223,14 @@ impl<'a> Node for ReturnStatement<'a> {
     }
 }
 
+impl<'a> ToString for ReturnStatement<'a> {
+    fn to_string(&self) -> String {
+        match &self.return_value {
+            Some(v) => format!("{} {};", self.token_literal(), v.to_string()),
+            None => format!("{};", self.token_literal()),
+        }
+    }
+}
 #[derive(Debug)]
 pub struct ExpressionStatement<'a> {
     pub token: Token<'a>,
@@ -168,5 +244,14 @@ impl<'a> Statement for ExpressionStatement<'a> {
 impl<'a> Node for ExpressionStatement<'a> {
     fn token_literal(&self) -> String {
         self.token.literal.clone()
+    }
+}
+
+impl<'a> ToString for ExpressionStatement<'a> {
+    fn to_string(&self) -> String {
+        match &self.expression {
+            Some(e) => e.to_string(),
+            None => "".into(),
+        }
     }
 }
