@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::token::Token;
+use crate::{lexer::Lexer, token::Token};
 
 #[derive(Debug)]
 pub enum Statements<'a> {
@@ -26,6 +26,7 @@ pub enum Expressions<'a> {
     IntegerLiteral(IntegerLiteral<'a>),
     PrefixExpression(PrefixExpression<'a>),
     InfixExpression(InfixExpression<'a>),
+    IfExpression(IfExpression<'a>),
     InvalidExpression,
 }
 
@@ -37,6 +38,7 @@ impl<'a> ToString for Expressions<'a> {
             Expressions::IntegerLiteral(i) => i.to_string(),
             Expressions::PrefixExpression(p) => p.to_string(),
             Expressions::InfixExpression(i) => i.to_string(),
+            Expressions::IfExpression(i) => i.to_string(),
             Expressions::InvalidExpression => "".into(),
         }
     }
@@ -176,6 +178,64 @@ impl<'a> ToString for InfixExpression<'a> {
             self.operator,
             self.right.to_string()
         )
+    }
+}
+
+#[derive(Debug)]
+pub struct IfExpression<'a> {
+    pub token: Token<'a>,
+    pub condition: Rc<Expressions<'a>>,
+    pub consequence: Rc<BlockStatement<'a>>,
+    pub alternative: Option<BlockStatement<'a>>,
+}
+
+impl<'a> Expression for IfExpression<'a> {
+    fn expression_node(&self) {}
+}
+
+impl<'a> Node for IfExpression<'a> {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl<'a> ToString for IfExpression<'a> {
+    fn to_string(&self) -> String {
+        let mut str = format!(
+            "if{} {}",
+            self.condition.to_string(),
+            self.consequence.to_string()
+        );
+
+        if let Some(alt) = self.alternative.as_ref() {
+            str.push_str(&format!("else {}", alt.to_string()));
+        }
+        str
+    }
+}
+
+#[derive(Debug)]
+pub struct BlockStatement<'a> {
+    pub token: Token<'a>,
+    pub statements: Vec<Statements<'a>>,
+}
+
+impl<'a> Expression for BlockStatement<'a> {
+    fn expression_node(&self) {}
+}
+impl<'a> Node for BlockStatement<'a> {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl<'a> ToString for BlockStatement<'a> {
+    fn to_string(&self) -> String {
+        let mut str = String::new();
+        for s in &self.statements {
+            str.push_str(&s.to_string());
+        }
+        str
     }
 }
 

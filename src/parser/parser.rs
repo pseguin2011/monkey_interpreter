@@ -3,14 +3,14 @@ use crate::parser::ast::{
     Boolean, ExpressionStatement, Expressions, Identifier, IntegerLiteral, LetStatement, Node,
     Program, ReturnStatement, Statements,
 };
-use crate::token::Token;
 use crate::token::{self, TokenType};
+use crate::token::{Token, LBRACE};
 use std::any::{Any, TypeId};
 use std::rc::Rc;
 
 use std::collections::HashMap;
 
-use super::ast::{InfixExpression, PrefixExpression};
+use super::ast::{BlockStatement, IfExpression, InfixExpression, PrefixExpression};
 
 // Constants to show order of expression priority
 const LOWEST: u8 = 1;
@@ -761,6 +761,138 @@ fn test_operator_procedure_parsing() {
     }
 }
 
+#[test]
+fn test_if_expression() {
+    let input = "if (x < y) { x }";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    let program = parser.parse_program();
+    check_parser_errors(&parser);
+    if let Some(prog) = program {
+        if prog.statements.len() != 1 {
+            eprintln!(
+                "program.body does not contain 1 statement. got={}",
+                prog.statements.len()
+            );
+            panic!();
+        }
+
+        if let Statements::ExpressionStatement(ExpressionStatement {
+            expression:
+                Some(Expressions::IfExpression(
+                    if_expression @ IfExpression {
+                        consequence,
+                        alternative,
+                        ..
+                    },
+                )),
+            ..
+        }) = &prog.statements[0]
+        {
+            if !test_infix_expression(&if_expression.condition, &"x", "<".to_string(), &"y") {
+                return;
+            }
+            if if_expression.consequence.statements.len() != 1 {
+                eprintln!(
+                    "consequence is not 1 statement. got={}",
+                    if_expression.consequence.statements.len()
+                );
+            }
+            if let Statements::ExpressionStatement(ExpressionStatement {
+                expression: Some(expression),
+                ..
+            }) = &consequence.statements[0]
+            {
+                if !test_identifier(&expression, "x".to_string()) {
+                    return;
+                }
+            }
+            if alternative.is_some() {
+                eprintln!("alternative.statements was not nil. got={:?}", alternative);
+            }
+        } else {
+            eprintln!(
+                "program.statements[0] is not an ExpressionStatement and not an IfExpression. got={:?}",
+                prog.statements[0]
+            );
+            panic!();
+        }
+    }
+}
+
+#[test]
+fn test_if_else_expression() {
+    let input = "if (x < y) { x } else { y }";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    let program = parser.parse_program();
+    check_parser_errors(&parser);
+    if let Some(prog) = program {
+        if prog.statements.len() != 1 {
+            eprintln!(
+                "program.body does not contain 1 statement. got={}",
+                prog.statements.len()
+            );
+            panic!();
+        }
+
+        if let Statements::ExpressionStatement(ExpressionStatement {
+            expression:
+                Some(Expressions::IfExpression(
+                    if_expression @ IfExpression {
+                        consequence,
+                        alternative,
+                        ..
+                    },
+                )),
+            ..
+        }) = &prog.statements[0]
+        {
+            if !test_infix_expression(&if_expression.condition, &"x", "<".to_string(), &"y") {
+                return;
+            }
+            if if_expression.consequence.statements.len() != 1 {
+                eprintln!(
+                    "consequence is not 1 statement. got={}",
+                    if_expression.consequence.statements.len()
+                );
+            }
+            if let Statements::ExpressionStatement(ExpressionStatement {
+                expression: Some(expression),
+                ..
+            }) = &consequence.statements[0]
+            {
+                if !test_identifier(&expression, "x".to_string()) {
+                    return;
+                }
+            }
+
+            if alternative.is_some() && alternative.as_ref().unwrap().statements.len() != 1 {
+                eprintln!(
+                    "alternative does not exist of has more than 1 statement. got={:?}",
+                    alternative
+                );
+            }
+
+            if let Some(Statements::ExpressionStatement(ExpressionStatement {
+                expression: Some(expression),
+                ..
+            })) = alternative.as_ref().and_then(|a| Some(&a.statements[0]))
+            {
+                if !test_identifier(&expression, "y".to_string()) {
+                    return;
+                }
+            }
+        } else {
+            eprintln!(
+                "program.statements[0] is not an ExpressionStatement and not an IfExpression. got={:?}",
+                prog.statements[0]
+            );
+            panic!();
+        }
+    }
+}
+
 fn check_parser_errors(parser: &Parser) {
     let errors = parser.errors();
     if errors.is_empty() {
@@ -862,7 +994,7 @@ fn test_literal_expression<'a, T: Sized + Any>(exp: &Expressions<'a>, expected: 
 }
 
 fn test_infix_expression<'a, T: Sized + Any>(
-    exp: Expressions<'a>,
+    exp: &Expressions<'a>,
     left: &T,
     operator: String,
     right: &T,
