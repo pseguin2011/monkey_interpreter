@@ -1,10 +1,11 @@
 use crate::lexer::Lexer;
 use crate::parser::ast::{
-    ExpressionStatement, Expressions, Identifier, IntegerLiteral, LetStatement, Node, Program,
-    ReturnStatement, Statements,
+    Boolean, ExpressionStatement, Expressions, Identifier, IntegerLiteral, LetStatement, Node,
+    Program, ReturnStatement, Statements,
 };
 use crate::token::Token;
 use crate::token::{self, TokenType};
+use std::any::{Any, TypeId};
 use std::rc::Rc;
 
 use std::collections::HashMap;
@@ -57,6 +58,8 @@ impl Parser {
         parser.register_prefix(token::INT, &Parser::parse_integer_literal);
         parser.register_prefix(token::BANG, &Parser::parse_prefix_expression);
         parser.register_prefix(token::MINUS, &Parser::parse_prefix_expression);
+        parser.register_prefix(token::TRUE, &Parser::parse_boolean);
+        parser.register_prefix(token::FALSE, &Parser::parse_boolean);
 
         parser.register_infix(token::PLUS, &Parser::parse_infix_expression);
         parser.register_infix(token::MINUS, &Parser::parse_infix_expression);
@@ -225,6 +228,16 @@ impl Parser {
                     value,
                 });
             }
+        }
+        Expressions::InvalidExpression
+    }
+
+    pub fn parse_boolean(&mut self) -> Expressions<'static> {
+        if let Some(token) = &self.current_token {
+            return Expressions::Boolean(Boolean {
+                token: token.clone(),
+                value: self.current_token_is(token::TRUE),
+            });
         }
         Expressions::InvalidExpression
     }
@@ -424,20 +437,6 @@ impl Parser {
         }
         LOWEST
     }
-
-    // }
-    //     // [...]
-    //     func (p *Parser) peekPrecedence() int {
-    //     if p, ok := precedences[p.peekToken.Type]; ok {
-    //     return p
-    //     }
-    //     return LOWEST
-    //     }
-    //     func (p *Parser) curPrecedence() int {
-    //     if p, ok := precedences[p.curToken.Type]; ok {
-    //     return p
-    //     65}
-    //     retu
 }
 
 #[test]
@@ -702,6 +701,10 @@ fn test_operator_procedure_parsing() {
             "3 + 4 * 5 == 3 * 1 + 4 * 5",
             "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
         ),
+        ("true", "true"),
+        ("false", "false"),
+        ("3 > 5 == false", "((3 > 5) == false)"),
+        ("3 < 5 == true", "((3 < 5) == true)"),
     ];
     for (input, expected) in tests {
         let l = Lexer::new(input);
@@ -750,4 +753,67 @@ fn test_integer_literal(il: &Expressions, value: u64) -> bool {
     }
     eprintln!("il not ast.IntegerLiteral. got={:?}", il);
     false
+}
+
+fn test_identifier<'a>(exp: &Expressions<'a>, value: String) -> bool {
+    if let Expressions::Identifier(ident) = exp {
+        if ident.value != value {
+            eprintln!("ident.Value not {}. got {}", value, ident.value);
+            return false;
+        }
+        if ident.token_literal() != value {
+            eprintln!(
+                "ident.TokenLiteral not {}. got {}",
+                value,
+                ident.token_literal()
+            );
+            return false;
+        }
+    } else {
+        eprintln!("exp not Identifier. got {:?}", exp);
+        return false;
+    }
+    true
+}
+
+fn test_literal_expression<'a, T: Sized + Any>(exp: &Expressions<'a>, expected: &T) -> bool {
+    let value = expected as &dyn Any;
+    // return test_integer_literal(&exp, value.downcast_mut::<u64>().unwrap().clone());
+
+    if value.type_id() == TypeId::of::<u64>() {
+        return test_integer_literal(&exp, value.downcast_ref::<u64>().unwrap().clone());
+    }
+
+    if value.type_id() == TypeId::of::<String>() {
+        return test_identifier(exp, value.downcast_ref::<String>().unwrap().to_string());
+    }
+    eprintln!("type of exp not handled, got={:?}", value.type_id());
+    return false;
+}
+
+fn test_infix_expression<'a, T: Sized + Any>(
+    exp: Expressions<'a>,
+    left: &T,
+    operator: String,
+    right: &T,
+) -> bool {
+    let op_exp;
+    if let Expressions::InfixExpression(exp) = exp {
+        op_exp = exp;
+    } else {
+        eprintln!("exp is not ast.operatorExpression");
+        return false;
+    }
+
+    if !test_literal_expression(&op_exp.left, left) {
+        return false;
+    }
+    if op_exp.operator != operator {
+        eprintln!("exp.operator is not {}, got {}", operator, op_exp.operator);
+        return false;
+    }
+    if !test_literal_expression(&op_exp.right, right) {
+        return false;
+    }
+    true
 }

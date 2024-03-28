@@ -22,6 +22,7 @@ impl<'a> ToString for Statements<'a> {
 #[derive(Debug)]
 pub enum Expressions<'a> {
     Identifier(Identifier<'a>),
+    Boolean(Boolean<'a>),
     IntegerLiteral(IntegerLiteral<'a>),
     PrefixExpression(PrefixExpression<'a>),
     InfixExpression(InfixExpression<'a>),
@@ -32,6 +33,7 @@ impl<'a> ToString for Expressions<'a> {
     fn to_string(&self) -> String {
         match self {
             Expressions::Identifier(i) => i.to_string(),
+            Expressions::Boolean(b) => b.to_string(),
             Expressions::IntegerLiteral(i) => i.to_string(),
             Expressions::PrefixExpression(p) => p.to_string(),
             Expressions::InfixExpression(i) => i.to_string(),
@@ -253,5 +255,27 @@ impl<'a> ToString for ExpressionStatement<'a> {
             Some(e) => e.to_string(),
             None => "".into(),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct Boolean<'a> {
+    pub token: Token<'a>,
+    pub value: bool,
+}
+
+impl<'a> Node for Boolean<'a> {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl<'a> Expression for Boolean<'a> {
+    fn expression_node(&self) {}
+}
+
+impl<'a> ToString for Boolean<'a> {
+    fn to_string(&self) -> String {
+        self.token.literal.clone()
     }
 }
