@@ -583,8 +583,12 @@ fn test_integer_literal_expression() {
 
 #[test]
 fn test_parsin_prefix_expressions() {
-    let prefix_test = [("!5;", "!", 5), ("-15;", "-", 15)];
-    for input in prefix_test {
+    let prefix_test_1 = [("!5;", "!", 5), ("-15;", "-", 15)];
+    let prefix_test_2 = [("!true;", "!", true), ("!false;", "!", false)];
+}
+
+fn parsing_prefix_expressions_helper(tests: &[(&str, &str, impl Any + Sized)]) {
+    for input in tests {
         let l = Lexer::new(input.0);
         let mut p = Parser::new(l);
         let prog = p.parse_program();
@@ -611,7 +615,7 @@ fn test_parsin_prefix_expressions() {
                         "exp.Operator is not {:?}, got {:?}",
                         input.1, exp.operator
                     );
-                    if !test_integer_literal(&exp.right, input.2) {
+                    if !test_literal_expression(&exp.right, &input.2) {
                         return;
                     }
                 }
@@ -626,7 +630,7 @@ fn test_parsin_prefix_expressions() {
 
 #[test]
 fn test_parsing_infix_expression() {
-    let infix_test = [
+    let infix_test_1: [(&str, u64, &str, u64); 8] = [
         ("5 + 5;", 5, "+", 5),
         ("5 - 5;", 5, "-", 5),
         ("5 * 5;", 5, "*", 5),
@@ -636,8 +640,18 @@ fn test_parsing_infix_expression() {
         ("5 == 5;", 5, "==", 5),
         ("5 != 5;", 5, "!=", 5),
     ];
-    for (input, left_value, operator, right_value) in infix_test {
-        let l = Lexer::new(input);
+    let infix_test_2 = [
+        ("true == true", true, "==", true),
+        ("true != false", true, "!=", false),
+        ("false == false", false, "==", false),
+    ];
+    test_parsing_infix_helper(&infix_test_1);
+    test_parsing_infix_helper(&infix_test_2);
+}
+
+fn test_parsing_infix_helper(tests: &[(&str, impl Any + Sized, &str, impl Any + Sized)]) {
+    for (input, left_value, operator, right_value) in tests {
+        let l = Lexer::new(*input);
         let mut p = Parser::new(l);
         let prog = p.parse_program();
         check_parser_errors(&p);
@@ -667,13 +681,13 @@ fn test_parsing_infix_expression() {
                 panic!()
             }
             if let Expressions::InfixExpression(exp) = stmt {
-                assert!(test_integer_literal(&exp.left, left_value));
+                assert!(test_literal_expression(&exp.left, left_value));
                 assert_eq!(
-                    exp.operator, operator,
+                    exp.operator, *operator,
                     "exp.operator is not {}, got={}",
                     operator, exp.operator
                 );
-                assert!(test_integer_literal(&exp.right, right_value));
+                assert!(test_literal_expression(&exp.right, right_value));
             }
         }
     }
@@ -755,6 +769,30 @@ fn test_integer_literal(il: &Expressions, value: u64) -> bool {
     false
 }
 
+fn test_boolean_literal<'a>(exp: &Expressions<'a>, value: bool) -> bool {
+    let bo;
+    match exp {
+        Expressions::Boolean(b) => bo = b,
+        _ => {
+            eprintln!("exp is not ast.Boolean got={:?}", exp);
+            return false;
+        }
+    }
+    if bo.value != value {
+        eprintln!("bo.value is not {}, got={}", value, bo.value);
+        return false;
+    }
+    if bo.token_literal() != value.to_string() {
+        eprintln!(
+            "bo.token_literal is not {}, got={}",
+            value,
+            bo.token_literal()
+        );
+        return false;
+    }
+    true
+}
+
 fn test_identifier<'a>(exp: &Expressions<'a>, value: String) -> bool {
     if let Expressions::Identifier(ident) = exp {
         if ident.value != value {
@@ -780,6 +818,9 @@ fn test_literal_expression<'a, T: Sized + Any>(exp: &Expressions<'a>, expected: 
     let value = expected as &dyn Any;
     // return test_integer_literal(&exp, value.downcast_mut::<u64>().unwrap().clone());
 
+    if value.type_id() == TypeId::of::<i32>() {
+        return test_integer_literal(&exp, value.downcast_ref::<i32>().unwrap().clone() as u64);
+    }
     if value.type_id() == TypeId::of::<u64>() {
         return test_integer_literal(&exp, value.downcast_ref::<u64>().unwrap().clone());
     }
@@ -787,7 +828,11 @@ fn test_literal_expression<'a, T: Sized + Any>(exp: &Expressions<'a>, expected: 
     if value.type_id() == TypeId::of::<String>() {
         return test_identifier(exp, value.downcast_ref::<String>().unwrap().to_string());
     }
-    eprintln!("type of exp not handled, got={:?}", value.type_id());
+
+    if value.type_id() == TypeId::of::<bool>() {
+        return test_boolean_literal(exp, value.downcast_ref::<bool>().unwrap().clone());
+    }
+    eprintln!("type of exp not handled, got={:?}", value);
     return false;
 }
 
