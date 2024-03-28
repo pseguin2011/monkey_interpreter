@@ -60,6 +60,7 @@ impl Parser {
         parser.register_prefix(token::MINUS, &Parser::parse_prefix_expression);
         parser.register_prefix(token::TRUE, &Parser::parse_boolean);
         parser.register_prefix(token::FALSE, &Parser::parse_boolean);
+        parser.register_prefix(token::LPAREN, &Parser::parse_grouped_expression);
 
         parser.register_infix(token::PLUS, &Parser::parse_infix_expression);
         parser.register_infix(token::MINUS, &Parser::parse_infix_expression);
@@ -290,6 +291,23 @@ impl Parser {
                 right: Rc::new(right),
                 operator: literal,
             });
+        }
+        Expressions::InvalidExpression
+    }
+
+    fn parse_grouped_expression(&mut self) -> Expressions<'static> {
+        self.next_token();
+        let token;
+        if let Some(tok) = &self.current_token {
+            token = tok;
+        } else {
+            return Expressions::InvalidExpression;
+        }
+        if let Some(exp) = self.parse_expression(LOWEST, token.token_type) {
+            if !self.expected_peek(token::RPAREN) {
+                return Expressions::InvalidExpression;
+            }
+            return exp;
         }
         Expressions::InvalidExpression
     }
@@ -721,6 +739,11 @@ fn test_operator_procedure_parsing() {
         ("false", "false"),
         ("3 > 5 == false", "((3 > 5) == false)"),
         ("3 < 5 == true", "((3 < 5) == true)"),
+        ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"),
+        ("(5 + 5) * 2", "((5 + 5) * 2)"),
+        ("2 / (5 + 5)", "(2 / (5 + 5))"),
+        ("-(5 + 5)", "(-(5 + 5))"),
+        ("!(true == true)", "(!(true == true))"),
     ];
     for (input, expected) in tests {
         let l = Lexer::new(input);
