@@ -1,5 +1,5 @@
 use crate::{
-    object::{self, Objects},
+    object::{self, Boolean, Objects},
     parser::ast::{ExpressionStatement, Expressions, Program, Statements},
 };
 
@@ -20,10 +20,12 @@ pub fn eval(node: EvaluatorType<'static>) -> Option<Objects> {
         EvaluatorType::Expressions(Expressions::IntegerLiteral(i)) => {
             return Some(Objects::Integer(object::Integer { value: i.value }));
         }
+        EvaluatorType::Expressions(Expressions::Boolean(b)) => {
+            return Some(Objects::Boolean(Boolean { value: b.value }))
+        }
         // TODO we need to handle the expressions later
         EvaluatorType::Expressions(_) => return None,
         EvaluatorType::Statements(_) => return None,
-        _ => None,
     }
 }
 

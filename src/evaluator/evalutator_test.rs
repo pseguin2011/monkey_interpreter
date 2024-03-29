@@ -43,3 +43,36 @@ fn test_integer_object(obj: Objects, expected: u64) -> bool {
     }
     true
 }
+
+#[test]
+fn test_eval_boolean_expression() {
+    let tests = [("true", true), ("false", false)];
+
+    for (input, expected) in tests {
+        if let Some(evaluated) = test_eval(input) {
+            test_boolean_object(evaluated, expected);
+        } else {
+            eprintln!("The evaluation did not succeed");
+            panic!();
+        }
+    }
+}
+
+fn test_boolean_object(obj: Objects, expected: bool) -> bool {
+    let result;
+    if let Objects::Boolean(o) = obj {
+        result = o;
+    } else {
+        eprintln!("object is not boolean, got={:?}", obj);
+        return false;
+    }
+
+    if result.value != expected {
+        eprintln!(
+            "object has wrong value, got={}, want={}",
+            result.value, expected
+        );
+        return false;
+    }
+    true
+}
