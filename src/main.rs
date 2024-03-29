@@ -3,8 +3,10 @@ use std::io::Write;
 use crate::{lexer::Lexer, parser::Parser};
 
 pub mod lexer;
+pub mod object;
 pub mod parser;
 pub mod token;
+
 const PROMPT: &str = "Let's Start Transpiling, start typing commands.";
 fn main() {
     let scanner = std::io::stdin();
