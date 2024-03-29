@@ -61,6 +61,7 @@ impl Parser {
         parser.register_prefix(token::TRUE, &Parser::parse_boolean);
         parser.register_prefix(token::FALSE, &Parser::parse_boolean);
         parser.register_prefix(token::LPAREN, &Parser::parse_grouped_expression);
+        parser.register_prefix(token::IF, &Parser::parse_if_expression);
 
         parser.register_infix(token::PLUS, &Parser::parse_infix_expression);
         parser.register_infix(token::MINUS, &Parser::parse_infix_expression);
@@ -145,25 +146,12 @@ impl Parser {
         let mut program = Self::new_program_ast_node();
 
         while let Some(token) = &self.current_token {
-            if let Token {
-                token_type: token::EOF,
-                ..
-            } = token
-            {
+            if token.token_type == token::EOF {
                 break;
             }
-            let statement = match token {
-                Token {
-                    token_type: token::LET,
-                    ..
-                } => self.parse_let_statement(),
-                Token {
-                    token_type: token::RETURN,
-                    ..
-                } => self.parse_return_statement(),
-                _ => self.parse_expression_statement(),
-            };
-            if let Some(st) = statement {
+
+            let stmt = self.parse_statement();
+            if let Some(st) = stmt {
                 program.statements.push(st);
             }
             self.next_token();
@@ -310,6 +298,91 @@ impl Parser {
             return exp;
         }
         Expressions::InvalidExpression
+    }
+
+    fn parse_if_expression(&mut self) -> Expressions<'static> {
+        let token;
+        let condition;
+        let consequence;
+        let mut alternative = None;
+
+        if !self.expected_peek(token::LPAREN) {
+            return Expressions::InvalidExpression;
+        }
+
+        self.next_token();
+
+        if let Some(tok) = &self.current_token {
+            token = tok.clone();
+        } else {
+            return Expressions::InvalidExpression;
+        }
+
+        if let Some(cond) = self.parse_expression(LOWEST, token.token_type) {
+            condition = cond;
+        } else {
+            return Expressions::InvalidExpression;
+        }
+
+        if !self.expected_peek(token::RPAREN) {
+            return Expressions::InvalidExpression;
+        }
+
+        if !self.expected_peek(token::LBRACE) {
+            return Expressions::InvalidExpression;
+        }
+
+        if let Some(cons) = self.parse_block_statement() {
+            consequence = cons;
+        } else {
+            return Expressions::InvalidExpression;
+        }
+
+        if self.peek_token_is(token::ELSE) {
+            self.next_token();
+            if !self.expected_peek(token::LBRACE) {
+                return Expressions::InvalidExpression;
+            }
+            alternative = self.parse_block_statement();
+        }
+
+        Expressions::IfExpression(IfExpression {
+            token,
+            condition: Rc::new(condition),
+            consequence: Rc::new(consequence),
+            alternative,
+        })
+    }
+
+    fn parse_block_statement(&mut self) -> Option<BlockStatement<'static>> {
+        self.next_token();
+        let token;
+        if let Some(tok) = &self.current_token {
+            token = tok.clone();
+        } else {
+            return None;
+        }
+
+        let mut statements = Vec::new();
+        while !self.current_token_is(token::RBRACE) && !self.current_token_is(token::EOF) {
+            if let Some(stmt) = self.parse_statement() {
+                statements.push(stmt);
+            }
+            self.next_token();
+        }
+        Some(BlockStatement { statements, token })
+    }
+
+    fn parse_statement(&mut self) -> Option<Statements<'static>> {
+        match self
+            .current_token
+            .as_ref()
+            .and_then(|tok| Some(tok.token_type))
+        {
+            Some(token::LET) => self.parse_let_statement(),
+            Some(token::RETURN) => self.parse_return_statement(),
+            _ => self.parse_expression_statement(),
+        }
     }
 }
 
