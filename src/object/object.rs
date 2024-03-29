@@ -34,7 +34,7 @@ impl Object for Objects {
 
 #[derive(Debug)]
 pub struct Integer {
-    pub value: u64,
+    pub value: i64,
 }
 
 impl Object for Integer {

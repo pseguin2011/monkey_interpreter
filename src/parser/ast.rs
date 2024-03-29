@@ -116,7 +116,7 @@ impl<'a> Display for Identifier<'a> {
 #[derive(Debug)]
 pub struct IntegerLiteral<'a> {
     pub token: Token<'a>,
-    pub value: u64,
+    pub value: i64,
 }
 
 impl<'a> Expression for IntegerLiteral<'a> {

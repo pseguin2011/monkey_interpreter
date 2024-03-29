@@ -216,7 +216,7 @@ impl Parser {
 
     pub fn parse_integer_literal(&mut self) -> Expressions<'static> {
         if let Some(token) = &self.current_token {
-            if let Ok(value) = token.literal.parse::<u64>() {
+            if let Ok(value) = token.literal.parse::<i64>() {
                 return Expressions::IntegerLiteral(IntegerLiteral {
                     token: token.clone(),
                     value,

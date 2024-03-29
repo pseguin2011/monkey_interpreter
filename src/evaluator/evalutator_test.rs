@@ -4,7 +4,14 @@ use super::evaluator;
 
 #[test]
 fn test_eval_integer_expression() {
-    let tests = [("5", 5), ("10", 10)];
+    let tests = [
+        ("5", 5),
+        ("10", 10),
+        ("5", 5),
+        ("10", 10),
+        ("-5", -5),
+        ("-10", -10),
+    ];
     for (input, expected) in tests {
         if let Some(evaluated) = test_eval(input) {
             test_integer_object(evaluated, expected);
@@ -25,7 +32,7 @@ fn test_eval(input: &str) -> Option<Objects> {
     return evaluator::eval(super::EvaluatorType::Program(program));
 }
 
-fn test_integer_object(obj: Objects, expected: u64) -> bool {
+fn test_integer_object(obj: Objects, expected: i64) -> bool {
     let result;
     if let Objects::Integer(i) = obj {
         result = i;
@@ -75,4 +82,23 @@ fn test_boolean_object(obj: Objects, expected: bool) -> bool {
         return false;
     }
     true
+}
+#[test]
+fn test_bang_operator() {
+    let tests = [
+        ("!true", false),
+        ("!false", true),
+        ("!5", false),
+        ("!!true", true),
+        ("!!false", false),
+        ("!!5", true),
+    ];
+    for (input, expected) in tests {
+        if let Some(evaluated) = test_eval(input) {
+            test_boolean_object(evaluated, expected);
+        } else {
+            eprintln!("The evaluation did not succeed");
+            panic!();
+        }
+    }
 }

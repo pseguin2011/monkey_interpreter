@@ -196,7 +196,7 @@ fn parsing_prefix_expressions_helper(tests: &[(&str, &str, impl Any + Sized)]) {
 
 #[test]
 fn test_parsing_infix_expression() {
-    let infix_test_1: [(&str, u64, &str, u64); 8] = [
+    let infix_test_1: [(&str, i64, &str, i64); 8] = [
         ("5 + 5;", 5, "+", 5),
         ("5 - 5;", 5, "-", 5),
         ("5 * 5;", 5, "*", 5),
@@ -641,7 +641,7 @@ fn check_parser_errors(parser: &Parser) {
     panic!();
 }
 
-fn test_integer_literal(il: &Expressions, value: u64) -> bool {
+fn test_integer_literal(il: &Expressions, value: i64) -> bool {
     if let Expressions::IntegerLiteral(integ) = il {
         if integ.value != value {
             eprintln!("integ.value is not {}. got={}", value, integ.value);
@@ -711,10 +711,10 @@ fn test_literal_expression<'a, T: Sized + Any>(exp: &Expressions<'a>, expected: 
     // return test_integer_literal(&exp, value.downcast_mut::<u64>().unwrap().clone());
 
     if value.type_id() == TypeId::of::<i32>() {
-        return test_integer_literal(&exp, value.downcast_ref::<i32>().unwrap().clone() as u64);
+        return test_integer_literal(&exp, value.downcast_ref::<i32>().unwrap().clone() as i64);
     }
-    if value.type_id() == TypeId::of::<u64>() {
-        return test_integer_literal(&exp, value.downcast_ref::<u64>().unwrap().clone());
+    if value.type_id() == TypeId::of::<i64>() {
+        return test_integer_literal(&exp, value.downcast_ref::<i64>().unwrap().clone());
     }
 
     if value.type_id() == TypeId::of::<String>() {
