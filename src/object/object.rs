@@ -3,14 +3,38 @@ pub enum ObjectType {
     Boolean,
     Null,
 }
-
 pub trait Object {
     fn object_type(&self) -> ObjectType;
     fn inspect(&self) -> String;
 }
 
-struct Integer {
-    value: u64,
+#[derive(Debug)]
+pub enum Objects {
+    Integer(Integer),
+    Boolean(Boolean),
+    Null(Null),
+}
+
+impl Object for Objects {
+    fn inspect(&self) -> String {
+        match self {
+            Self::Integer(i) => i.inspect(),
+            Self::Boolean(b) => b.inspect(),
+            Self::Null(n) => n.inspect(),
+        }
+    }
+    fn object_type(&self) -> ObjectType {
+        match self {
+            Self::Integer(i) => i.object_type(),
+            Self::Boolean(b) => b.object_type(),
+            Self::Null(n) => n.object_type(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Integer {
+    pub value: u64,
 }
 
 impl Object for Integer {
@@ -22,8 +46,9 @@ impl Object for Integer {
     }
 }
 
-struct Boolean {
-    value: bool,
+#[derive(Debug)]
+pub struct Boolean {
+    pub value: bool,
 }
 
 impl Object for Boolean {
@@ -35,7 +60,8 @@ impl Object for Boolean {
     }
 }
 
-struct Null {}
+#[derive(Debug)]
+pub struct Null {}
 
 impl Object for Null {
     fn inspect(&self) -> String {

@@ -1,7 +1,10 @@
 use std::io::Write;
 
+use object::Object;
+
 use crate::{lexer::Lexer, parser::Parser};
 
+pub mod evaluator;
 pub mod lexer;
 pub mod object;
 pub mod parser;
@@ -14,11 +17,9 @@ fn main() {
     stdout.flush().unwrap();
 
     stdout.write_fmt(format_args!("{}", PROMPT)).unwrap();
-    // println!("{}", PROMPT);
     loop {
         stdout.write_all(b"\n>>").unwrap();
         stdout.flush().unwrap();
-        // println!(">>");
         let mut input = String::new();
         match scanner.read_line(&mut input) {
             Ok(_scan_size) => {}
@@ -37,9 +38,13 @@ fn main() {
             print_parser_errors(parser.errors());
             continue;
         }
-        stdout
-            .write_fmt(format_args!("{}", program.to_string()))
-            .unwrap();
+        if let Some(evaluated) = evaluator::eval(evaluator::EvaluatorType::Program(program)) {
+            stdout
+                .write_fmt(format_args!("{}", evaluated.inspect()))
+                .unwrap();
+        } else {
+            eprintln!("Evaluation failed");
+        }
     }
 }
 
