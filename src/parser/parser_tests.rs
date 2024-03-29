@@ -7,8 +7,8 @@ use std::any::{Any, TypeId};
 fn test_let_statements() {
     let input = "
         let x = 5;
-        let y = 10;
-        let foobar = 838383;
+        let y = true;
+        let foobar = y;
     ";
 
     let l = Lexer::new(input);

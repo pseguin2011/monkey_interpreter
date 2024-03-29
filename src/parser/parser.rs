@@ -492,7 +492,7 @@ impl Parser {
     /// # Returns
     /// A let statement
     fn parse_let_statement(&mut self) -> Option<Statements<'static>> {
-        let statement;
+        let mut statement;
         let mut let_token = self.current_token.take();
 
         if !self.expected_peek(token::IDENT) {
@@ -515,8 +515,11 @@ impl Parser {
         if !self.expected_peek(token::ASSIGN) {
             return None;
         }
+        self.next_token();
 
-        while !self.current_token_is(token::SEMICOLON) {
+        statement.value = self.parse_expression(LOWEST);
+
+        if self.peek_token_is(token::SEMICOLON) {
             self.next_token();
         }
         Some(Statements::LetStatement(statement))
@@ -528,7 +531,7 @@ impl Parser {
     /// # Returns
     /// A return statement
     fn parse_return_statement(&mut self) -> Option<Statements<'static>> {
-        let statement;
+        let mut statement;
         if let Some(return_token) = self.current_token.take() {
             statement = ReturnStatement {
                 token: return_token,
@@ -538,7 +541,9 @@ impl Parser {
             return None;
         }
         self.next_token();
-        while !self.current_token_is(token::SEMICOLON) {
+        statement.return_value = self.parse_expression(LOWEST);
+
+        if self.peek_token_is(token::SEMICOLON) {
             self.next_token();
         }
         Some(Statements::ReturnStatement(statement))
