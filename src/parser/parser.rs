@@ -10,7 +10,8 @@ use std::rc::Rc;
 use std::collections::HashMap;
 
 use super::ast::{
-    BlockStatement, FunctionLiteral, IfExpression, InfixExpression, PrefixExpression,
+    BlockStatement, CallExpression, FunctionLiteral, IfExpression, InfixExpression,
+    PrefixExpression,
 };
 
 // Constants to show order of expression priority
@@ -22,7 +23,7 @@ const PRODUCT: u8 = 5; // *
 const PREFIX: u8 = 6; // -X or !X
 const CALL: u8 = 7; // myFunction(X)
 
-const PRECEDENCES: [(&str, u8); 8] = [
+const PRECEDENCES: [(&str, u8); 9] = [
     (token::EQ, EQUALS),
     (token::NOT_EQ, EQUALS),
     (token::LT, LESSGREATER),
@@ -31,6 +32,7 @@ const PRECEDENCES: [(&str, u8); 8] = [
     (token::MINUS, SUM),
     (token::SLASH, PRODUCT),
     (token::ASTERISK, PRODUCT),
+    (token::LPAREN, CALL),
 ];
 
 type PrefixParsingFn<'a> = dyn Fn(&mut Parser) -> Expressions<'a>;
@@ -73,6 +75,7 @@ impl Parser {
         parser.register_infix(token::NOT_EQ, &Parser::parse_infix_expression);
         parser.register_infix(token::LT, &Parser::parse_infix_expression);
         parser.register_infix(token::GT, &Parser::parse_infix_expression);
+        parser.register_infix(token::LPAREN, &Parser::parse_call_expression);
 
         parser.next_token();
         parser.next_token();
@@ -244,11 +247,7 @@ impl Parser {
         }
         self.next_token();
 
-        if let Some(right) = self
-            .current_token
-            .clone()
-            .and_then(|token| self.parse_expression(PREFIX, token.token_type))
-        {
+        if let Some(right) = self.parse_expression(PREFIX) {
             return Expressions::PrefixExpression(PrefixExpression {
                 token: token_clone,
                 operator,
@@ -270,11 +269,7 @@ impl Parser {
 
         let precedence = self.cur_precedence();
         self.next_token();
-        if let Some(right) = self
-            .current_token
-            .clone()
-            .and_then(|token| self.parse_expression(precedence, token.token_type))
-        {
+        if let Some(right) = self.parse_expression(precedence) {
             return Expressions::InfixExpression(InfixExpression {
                 token,
                 left: Rc::new(left),
@@ -287,13 +282,7 @@ impl Parser {
 
     fn parse_grouped_expression(&mut self) -> Expressions<'static> {
         self.next_token();
-        let token;
-        if let Some(tok) = &self.current_token {
-            token = tok;
-        } else {
-            return Expressions::InvalidExpression;
-        }
-        if let Some(exp) = self.parse_expression(LOWEST, token.token_type) {
+        if let Some(exp) = self.parse_expression(LOWEST) {
             if !self.expected_peek(token::RPAREN) {
                 return Expressions::InvalidExpression;
             }
@@ -320,7 +309,7 @@ impl Parser {
             return Expressions::InvalidExpression;
         }
 
-        if let Some(cond) = self.parse_expression(LOWEST, token.token_type) {
+        if let Some(cond) = self.parse_expression(LOWEST) {
             condition = cond;
         } else {
             return Expressions::InvalidExpression;
@@ -385,6 +374,48 @@ impl Parser {
             parameters,
             token,
         })
+    }
+
+    fn parse_call_expression(&mut self, function: Expressions<'static>) -> Expressions<'static> {
+        let token = match &self.current_token {
+            Some(token) => token.clone(),
+            None => return Expressions::InvalidExpression,
+        };
+        let arguments = match self.parse_call_arguments() {
+            Some(args) => args,
+            None => return Expressions::InvalidExpression,
+        };
+
+        return Expressions::CallExpression(CallExpression {
+            arguments,
+            function: Rc::new(function),
+            token,
+        });
+    }
+
+    fn parse_call_arguments(&mut self) -> Option<Vec<Expressions<'static>>> {
+        let mut args = Vec::new();
+        if self.peek_token_is(token::RPAREN) {
+            self.next_token();
+            return Some(args);
+        }
+        self.next_token();
+        if let Some(arg) = self.parse_expression(LOWEST) {
+            args.push(arg);
+        }
+
+        while self.peek_token_is(token::COMMA) {
+            self.next_token();
+            self.next_token();
+            if let Some(arg) = self.parse_expression(LOWEST) {
+                args.push(arg);
+            }
+        }
+
+        if !self.expected_peek(token::RPAREN) {
+            return None;
+        }
+        Some(args)
     }
 
     fn parse_block_statement(&mut self) -> Option<BlockStatement<'static>> {
@@ -521,10 +552,9 @@ impl Parser {
     fn parse_expression_statement(&mut self) -> Option<Statements<'static>> {
         let statement;
         if let Some(token) = self.current_token.clone() {
-            let token_type = token.token_type;
             statement = ExpressionStatement {
                 token,
-                expression: self.parse_expression(LOWEST, &token_type),
+                expression: self.parse_expression(LOWEST),
             };
         } else {
             return None;
@@ -537,11 +567,12 @@ impl Parser {
     }
 
     /// Finds the token parsing function stored in the hashmap and dispatches it.
-    fn parse_expression<'a>(
-        &mut self,
-        precedence: u8,
-        token_type: token::TokenType,
-    ) -> Option<Expressions<'static>> {
+    fn parse_expression<'a>(&mut self, precedence: u8) -> Option<Expressions<'static>> {
+        let token_type = match &self.current_token {
+            Some(token) => token.token_type,
+            None => return None,
+        };
+
         let mut left_exp;
         if let Some(prefix) = self.prefix_parsing_fns.get_mut(token_type) {
             left_exp = prefix.clone()(self);

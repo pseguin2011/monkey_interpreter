@@ -28,6 +28,7 @@ pub enum Expressions<'a> {
     InfixExpression(InfixExpression<'a>),
     IfExpression(IfExpression<'a>),
     FunctionLiteral(FunctionLiteral<'a>),
+    CallExpression(CallExpression<'a>),
     InvalidExpression,
 }
 
@@ -41,6 +42,7 @@ impl<'a> Display for Expressions<'a> {
             Expressions::InfixExpression(i) => i.to_string(),
             Expressions::IfExpression(i) => i.to_string(),
             Expressions::FunctionLiteral(f) => f.to_string(),
+            Expressions::CallExpression(c) => c.to_string(),
             Expressions::InvalidExpression => "".into(),
         })
     }
@@ -160,7 +162,38 @@ impl<'a> Display for FunctionLiteral<'a> {
                 .map(ToString::to_string)
                 .collect::<Vec<String>>()
                 .join(", "),
-            self.body.to_string()
+            self.body
+        ))
+    }
+}
+
+#[derive(Debug)]
+pub struct CallExpression<'a> {
+    pub token: Token<'a>,              // The '(' token
+    pub function: Rc<Expressions<'a>>, // Either an Identifier or FunctionLiteral
+    pub arguments: Vec<Expressions<'a>>,
+}
+
+impl<'a> Expression for CallExpression<'a> {
+    fn expression_node(&self) {}
+}
+
+impl<'a> Node for CallExpression<'a> {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl<'a> Display for CallExpression<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{}({})",
+            self.function,
+            self.arguments
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<String>>()
+                .join(", "),
         ))
     }
 }
@@ -184,11 +217,7 @@ impl<'a> Node for PrefixExpression<'a> {
 
 impl<'a> Display for PrefixExpression<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "({}{})",
-            self.operator,
-            self.right.to_string()
-        ))
+        f.write_fmt(format_args!("({}{})", self.operator, self.right))
     }
 }
 
@@ -214,9 +243,7 @@ impl<'a> Display for InfixExpression<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "({} {} {})",
-            self.left.to_string(),
-            self.operator,
-            self.right.to_string()
+            self.left, self.operator, self.right
         ))
     }
 }
@@ -303,14 +330,10 @@ impl<'a> Display for LetStatement<'a> {
             Some(v) => f.write_fmt(format_args!(
                 "{} {} = {};",
                 self.token_literal(),
-                self.name.to_string(),
-                v.to_string()
+                self.name,
+                v
             )),
-            None => f.write_fmt(format_args!(
-                "{} {};",
-                self.token_literal(),
-                self.name.to_string()
-            )),
+            None => f.write_fmt(format_args!("{} {};", self.token_literal(), self.name)),
         }
     }
 }
@@ -334,7 +357,7 @@ impl<'a> Node for ReturnStatement<'a> {
 impl<'a> Display for ReturnStatement<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.return_value {
-            Some(v) => f.write_fmt(format_args!("{} {};", self.token_literal(), v.to_string())),
+            Some(v) => f.write_fmt(format_args!("{} {};", self.token_literal(), v)),
             None => f.write_fmt(format_args!("{};", self.token_literal())),
         }
     }

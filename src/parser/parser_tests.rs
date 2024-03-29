@@ -290,6 +290,15 @@ fn test_operator_procedure_parsing() {
         ("2 / (5 + 5)", "(2 / (5 + 5))"),
         ("-(5 + 5)", "(-(5 + 5))"),
         ("!(true == true)", "(!(true == true))"),
+        ("a + add(b * c) + d", "((a + add((b * c))) + d)"),
+        (
+            "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+            "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+        ),
+        (
+            "add(a + b + c * d / f + g)",
+            "add((((a + b) + ((c * d) / f)) + g))",
+        ),
     ];
     for (input, expected) in tests {
         let l = Lexer::new(input);
@@ -566,6 +575,55 @@ fn test_function_parameter_parsing() {
                 eprintln!("program.statements[0] was not a function literal");
                 return;
             }
+        }
+    }
+}
+
+#[test]
+fn test_call_expression_parsing() {
+    let input = "add(1, 2 * 3, 4 * 5);";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    let prog = parser.parse_program();
+    check_parser_errors(&parser);
+    let program = match prog {
+        Some(prog) => {
+            if prog.statements.len() != 1 {
+                eprintln!(
+                    "program.body does not contain 1 statement. got={}",
+                    prog.statements.len()
+                );
+                panic!();
+            }
+            prog
+        }
+        _ => {
+            panic!("Program does not exist");
+        }
+    };
+    match &program.statements[0] {
+        Statements::ExpressionStatement(ExpressionStatement {
+            expression: Some(Expressions::CallExpression(call)),
+            ..
+        }) => {
+            if !test_identifier(&call.function, "add".to_string()) {
+                eprintln!("wrong call expression, expected=add, got={}", call.function);
+                return;
+            }
+
+            if call.arguments.len() != 3 {
+                eprintln!(
+                    "wrong number of arguments, expected=3, got={}",
+                    call.arguments.len()
+                );
+            }
+            test_literal_expression(&call.arguments[0], &1);
+            test_infix_expression(&call.arguments[1], &2, "*".to_string(), &3);
+            test_infix_expression(&call.arguments[2], &4, "+".to_string(), &5);
+        }
+        _ => {
+            eprintln!("program.statements[0] was not an ast.CallExpression");
+            return;
         }
     }
 }
