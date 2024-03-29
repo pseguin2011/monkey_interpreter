@@ -438,6 +438,137 @@ fn test_if_else_expression() {
         }
     }
 }
+#[test]
+fn test_function_literal_parsing() {
+    let input = "fn(x, y) { x + y; }";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    let prog = parser.parse_program();
+    check_parser_errors(&parser);
+    let program;
+    if let Some(prog) = prog {
+        if prog.statements.len() != 1 {
+            eprintln!(
+                "program.body does not contain 1 statement. got={}",
+                prog.statements.len()
+            );
+            panic!();
+        }
+        program = prog;
+    } else {
+        panic!("Program does not exist");
+    }
+    let function;
+    match &program.statements[0] {
+        Statements::ExpressionStatement(ExpressionStatement {
+            expression: Some(Expressions::FunctionLiteral(fn_literal)),
+            ..
+        }) => {
+            function = fn_literal;
+        }
+        _ => {
+            eprintln!(
+                "stmt.expression is not ast.FunctionLiteral, got={:?}",
+                program.statements[0]
+            );
+            panic!();
+        }
+    };
+    if function.parameters.len() != 2 {
+        eprintln!(
+            "function literal parameters wrong. want 2, got={}",
+            function.parameters.len()
+        );
+        panic!();
+    }
+
+    test_literal_expression(
+        &Expressions::Identifier(function.parameters[0].clone()),
+        &"x",
+    );
+    test_literal_expression(
+        &Expressions::Identifier(function.parameters[1].clone()),
+        &"y",
+    );
+
+    if function.body.statements.len() != 1 {
+        eprintln!(
+            "function body statements does not 1 statement. got={}",
+            function.body.statements.len()
+        )
+    }
+    match &function.body.statements[0] {
+        Statements::ExpressionStatement(ExpressionStatement {
+            expression: Some(body_stmt),
+            ..
+        }) => {
+            test_infix_expression(&body_stmt, &"x", "+".to_string(), &"y");
+        }
+        _ => {
+            eprintln!(
+                "function body stmt is not ast.ExpressionStatement, got={:?}",
+                function.body.statements[0]
+            )
+        }
+    };
+}
+
+#[test]
+fn test_function_parameter_parsing() {
+    let tests: [(&str, &[&str]); 3] = [
+        ("fn() {};", &[]),
+        ("fn(x) {};", &["x"]),
+        ("fn(x, y, z) {};", &["x", "y", "Z"]),
+    ];
+
+    for (input, expected_params) in tests {
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let prog = parser.parse_program();
+        check_parser_errors(&parser);
+        let program = match prog {
+            Some(prog) => {
+                if prog.statements.len() != 1 {
+                    eprintln!(
+                        "program.body does not contain 1 statement. got={}",
+                        prog.statements.len()
+                    );
+                    panic!();
+                }
+                prog
+            }
+            _ => {
+                panic!("Program does not exist");
+            }
+        };
+
+        match &program.statements[0] {
+            Statements::ExpressionStatement(ExpressionStatement {
+                expression: Some(Expressions::FunctionLiteral(func)),
+                ..
+            }) => {
+                if func.parameters.len() != expected_params.len() {
+                    eprintln!(
+                        "length parameters wrong. expected {}, got={}",
+                        expected_params.len(),
+                        func.parameters.len()
+                    );
+                    panic!();
+                }
+                for (i, ident) in expected_params.iter().enumerate() {
+                    test_literal_expression(
+                        &Expressions::Identifier(func.parameters[i].clone()),
+                        ident,
+                    );
+                }
+            }
+            _ => {
+                eprintln!("program.statements[0] was not a function literal");
+                return;
+            }
+        }
+    }
+}
 
 fn check_parser_errors(parser: &Parser) {
     let errors = parser.errors();

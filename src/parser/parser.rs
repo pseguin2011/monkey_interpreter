@@ -1,16 +1,17 @@
 use crate::lexer::Lexer;
 use crate::parser::ast::{
-    Boolean, ExpressionStatement, Expressions, Identifier, IntegerLiteral, LetStatement, Node,
-    Program, ReturnStatement, Statements,
+    Boolean, ExpressionStatement, Expressions, Identifier, IntegerLiteral, LetStatement, Program,
+    ReturnStatement, Statements,
 };
+use crate::token::Token;
 use crate::token::{self, TokenType};
-use crate::token::{Token, LBRACE};
-use std::any::{Any, TypeId};
 use std::rc::Rc;
 
 use std::collections::HashMap;
 
-use super::ast::{BlockStatement, IfExpression, InfixExpression, PrefixExpression};
+use super::ast::{
+    BlockStatement, FunctionLiteral, IfExpression, InfixExpression, PrefixExpression,
+};
 
 // Constants to show order of expression priority
 const LOWEST: u8 = 1;
@@ -62,6 +63,7 @@ impl Parser {
         parser.register_prefix(token::FALSE, &Parser::parse_boolean);
         parser.register_prefix(token::LPAREN, &Parser::parse_grouped_expression);
         parser.register_prefix(token::IF, &Parser::parse_if_expression);
+        parser.register_prefix(token::FUNCTION, &Parser::parse_function_literal);
 
         parser.register_infix(token::PLUS, &Parser::parse_infix_expression);
         parser.register_infix(token::MINUS, &Parser::parse_infix_expression);
@@ -354,6 +356,37 @@ impl Parser {
         })
     }
 
+    fn parse_function_literal(&mut self) -> Expressions<'static> {
+        let token = match &self.current_token {
+            Some(token) => token.clone(),
+            None => return Expressions::InvalidExpression,
+        };
+
+        if !self.expected_peek(token::LPAREN) {
+            return Expressions::InvalidExpression;
+        }
+
+        let parameters = match self.parse_function_parameters() {
+            Some(params) => params,
+            None => return Expressions::InvalidExpression,
+        };
+
+        if !self.expected_peek(token::LBRACE) {
+            return Expressions::InvalidExpression;
+        }
+
+        let body = match self.parse_block_statement() {
+            Some(parsed_body) => parsed_body,
+            None => return Expressions::InvalidExpression,
+        };
+
+        Expressions::FunctionLiteral(FunctionLiteral {
+            body,
+            parameters,
+            token,
+        })
+    }
+
     fn parse_block_statement(&mut self) -> Option<BlockStatement<'static>> {
         self.next_token();
         let token;
@@ -371,6 +404,40 @@ impl Parser {
             self.next_token();
         }
         Some(BlockStatement { statements, token })
+    }
+
+    fn parse_function_parameters(&mut self) -> Option<Vec<Identifier<'static>>> {
+        let mut identifiers = Vec::new();
+
+        if self.peek_token_is(token::RPAREN) {
+            self.next_token();
+            return Some(identifiers);
+        }
+        self.next_token();
+        match &self.current_token {
+            Some(token) => identifiers.push(Identifier {
+                value: token.literal.clone(),
+                token: token.clone(),
+            }),
+            None => return None,
+        };
+
+        while self.peek_token_is(token::COMMA) {
+            self.next_token();
+            self.next_token();
+            match &self.current_token {
+                Some(token) => identifiers.push(Identifier {
+                    value: token.literal.clone(),
+                    token: token.clone(),
+                }),
+                None => return None,
+            };
+        }
+
+        if !self.expected_peek(token::RPAREN) {
+            return None;
+        }
+        Some(identifiers)
     }
 
     fn parse_statement(&mut self) -> Option<Statements<'static>> {

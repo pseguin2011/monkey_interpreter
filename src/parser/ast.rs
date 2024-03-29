@@ -1,6 +1,6 @@
-use std::rc::Rc;
+use std::{fmt::Display, rc::Rc};
 
-use crate::{lexer::Lexer, token::Token};
+use crate::token::Token;
 
 #[derive(Debug)]
 pub enum Statements<'a> {
@@ -9,13 +9,13 @@ pub enum Statements<'a> {
     ExpressionStatement(ExpressionStatement<'a>),
 }
 
-impl<'a> ToString for Statements<'a> {
-    fn to_string(&self) -> String {
-        match self {
+impl<'a> Display for Statements<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&match self {
             Self::LetStatement(l) => l.to_string(),
             Self::ReturnStatement(r) => r.to_string(),
             Self::ExpressionStatement(e) => e.to_string(),
-        }
+        })
     }
 }
 
@@ -27,20 +27,22 @@ pub enum Expressions<'a> {
     PrefixExpression(PrefixExpression<'a>),
     InfixExpression(InfixExpression<'a>),
     IfExpression(IfExpression<'a>),
+    FunctionLiteral(FunctionLiteral<'a>),
     InvalidExpression,
 }
 
-impl<'a> ToString for Expressions<'a> {
-    fn to_string(&self) -> String {
-        match self {
+impl<'a> Display for Expressions<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&match self {
             Expressions::Identifier(i) => i.to_string(),
             Expressions::Boolean(b) => b.to_string(),
             Expressions::IntegerLiteral(i) => i.to_string(),
             Expressions::PrefixExpression(p) => p.to_string(),
             Expressions::InfixExpression(i) => i.to_string(),
             Expressions::IfExpression(i) => i.to_string(),
+            Expressions::FunctionLiteral(f) => f.to_string(),
             Expressions::InvalidExpression => "".into(),
-        }
+        })
     }
 }
 
@@ -75,17 +77,19 @@ impl<'a> Node for Program<'a> {
     }
 }
 
-impl<'a> ToString for Program<'a> {
-    fn to_string(&self) -> String {
-        let mut buffer = String::new();
-        for s in &self.statements {
-            buffer.push_str(&s.to_string());
-        }
-        buffer
+impl<'a> Display for Program<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            &self
+                .statements
+                .iter()
+                .map(ToString::to_string)
+                .collect::<String>(),
+        )
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Identifier<'a> {
     pub token: Token<'a>,
     pub value: String,
@@ -101,9 +105,9 @@ impl<'a> Node for Identifier<'a> {
     }
 }
 
-impl<'a> ToString for Identifier<'a> {
-    fn to_string(&self) -> String {
-        self.value.clone()
+impl<'a> Display for Identifier<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.value)
     }
 }
 
@@ -123,9 +127,41 @@ impl<'a> Node for IntegerLiteral<'a> {
     }
 }
 
-impl<'a> ToString for IntegerLiteral<'a> {
-    fn to_string(&self) -> String {
-        self.value.to_string()
+impl<'a> Display for IntegerLiteral<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.value.to_string())
+    }
+}
+
+#[derive(Debug)]
+pub struct FunctionLiteral<'a> {
+    pub token: Token<'a>,
+    pub parameters: Vec<Identifier<'a>>,
+    pub body: BlockStatement<'a>,
+}
+
+impl<'a> Expression for FunctionLiteral<'a> {
+    fn expression_node(&self) {}
+}
+
+impl<'a> Node for FunctionLiteral<'a> {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl<'a> Display for FunctionLiteral<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{} ({}) {}",
+            self.token_literal(),
+            self.parameters
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<String>>()
+                .join(", "),
+            self.body.to_string()
+        ))
     }
 }
 
@@ -146,9 +182,13 @@ impl<'a> Node for PrefixExpression<'a> {
     }
 }
 
-impl<'a> ToString for PrefixExpression<'a> {
-    fn to_string(&self) -> String {
-        format!("({}{})", self.operator, self.right.to_string())
+impl<'a> Display for PrefixExpression<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "({}{})",
+            self.operator,
+            self.right.to_string()
+        ))
     }
 }
 
@@ -170,14 +210,14 @@ impl<'a> Node for InfixExpression<'a> {
     }
 }
 
-impl<'a> ToString for InfixExpression<'a> {
-    fn to_string(&self) -> String {
-        format!(
+impl<'a> Display for InfixExpression<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
             "({} {} {})",
             self.left.to_string(),
             self.operator,
             self.right.to_string()
-        )
+        ))
     }
 }
 
@@ -199,8 +239,8 @@ impl<'a> Node for IfExpression<'a> {
     }
 }
 
-impl<'a> ToString for IfExpression<'a> {
-    fn to_string(&self) -> String {
+impl<'a> Display for IfExpression<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut str = format!(
             "if{} {}",
             self.condition.to_string(),
@@ -210,7 +250,7 @@ impl<'a> ToString for IfExpression<'a> {
         if let Some(alt) = self.alternative.as_ref() {
             str.push_str(&format!("else {}", alt.to_string()));
         }
-        str
+        f.write_str(&str)
     }
 }
 
@@ -229,13 +269,15 @@ impl<'a> Node for BlockStatement<'a> {
     }
 }
 
-impl<'a> ToString for BlockStatement<'a> {
-    fn to_string(&self) -> String {
-        let mut str = String::new();
-        for s in &self.statements {
-            str.push_str(&s.to_string());
-        }
-        str
+impl<'a> Display for BlockStatement<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            &self
+                .statements
+                .iter()
+                .map(ToString::to_string)
+                .collect::<String>(),
+        )
     }
 }
 
@@ -255,16 +297,20 @@ impl<'a> Node for LetStatement<'a> {
     }
 }
 
-impl<'a> ToString for LetStatement<'a> {
-    fn to_string(&self) -> String {
+impl<'a> Display for LetStatement<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.value {
-            Some(v) => format!(
+            Some(v) => f.write_fmt(format_args!(
                 "{} {} = {};",
                 self.token_literal(),
                 self.name.to_string(),
                 v.to_string()
-            ),
-            None => format!("{} {};", self.token_literal(), self.name.to_string()),
+            )),
+            None => f.write_fmt(format_args!(
+                "{} {};",
+                self.token_literal(),
+                self.name.to_string()
+            )),
         }
     }
 }
@@ -285,11 +331,11 @@ impl<'a> Node for ReturnStatement<'a> {
     }
 }
 
-impl<'a> ToString for ReturnStatement<'a> {
-    fn to_string(&self) -> String {
+impl<'a> Display for ReturnStatement<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.return_value {
-            Some(v) => format!("{} {};", self.token_literal(), v.to_string()),
-            None => format!("{};", self.token_literal()),
+            Some(v) => f.write_fmt(format_args!("{} {};", self.token_literal(), v.to_string())),
+            None => f.write_fmt(format_args!("{};", self.token_literal())),
         }
     }
 }
@@ -309,11 +355,11 @@ impl<'a> Node for ExpressionStatement<'a> {
     }
 }
 
-impl<'a> ToString for ExpressionStatement<'a> {
-    fn to_string(&self) -> String {
+impl<'a> Display for ExpressionStatement<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.expression {
-            Some(e) => e.to_string(),
-            None => "".into(),
+            Some(e) => f.write_str(&e.to_string()),
+            None => f.write_str(""),
         }
     }
 }
@@ -334,8 +380,8 @@ impl<'a> Expression for Boolean<'a> {
     fn expression_node(&self) {}
 }
 
-impl<'a> ToString for Boolean<'a> {
-    fn to_string(&self) -> String {
-        self.token.literal.clone()
+impl<'a> Display for Boolean<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.token.literal)
     }
 }
