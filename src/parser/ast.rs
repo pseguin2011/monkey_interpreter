@@ -2,7 +2,7 @@ use std::{fmt::Display, rc::Rc};
 
 use crate::token::Token;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statements<'a> {
     LetStatement(LetStatement<'a>),
     ReturnStatement(ReturnStatement<'a>),
@@ -19,7 +19,7 @@ impl<'a> Display for Statements<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expressions<'a> {
     Identifier(Identifier<'a>),
     Boolean(Boolean<'a>),
@@ -60,7 +60,7 @@ pub trait Expression: Node {
     fn expression_node(&self);
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Program<'a> {
     pub statements: Vec<Statements<'a>>,
 }
@@ -113,7 +113,7 @@ impl<'a> Display for Identifier<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IntegerLiteral<'a> {
     pub token: Token<'a>,
     pub value: i64,
@@ -135,7 +135,7 @@ impl<'a> Display for IntegerLiteral<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionLiteral<'a> {
     pub token: Token<'a>,
     pub parameters: Vec<Identifier<'a>>,
@@ -167,7 +167,7 @@ impl<'a> Display for FunctionLiteral<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CallExpression<'a> {
     pub token: Token<'a>,              // The '(' token
     pub function: Rc<Expressions<'a>>, // Either an Identifier or FunctionLiteral
@@ -198,7 +198,7 @@ impl<'a> Display for CallExpression<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PrefixExpression<'a> {
     pub token: Token<'a>,
     pub operator: String,
@@ -221,7 +221,7 @@ impl<'a> Display for PrefixExpression<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InfixExpression<'a> {
     pub token: Token<'a>,
     pub left: Rc<Expressions<'a>>,
@@ -248,7 +248,7 @@ impl<'a> Display for InfixExpression<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IfExpression<'a> {
     pub token: Token<'a>,
     pub condition: Rc<Expressions<'a>>,
@@ -281,7 +281,7 @@ impl<'a> Display for IfExpression<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlockStatement<'a> {
     pub token: Token<'a>,
     pub statements: Vec<Statements<'a>>,
@@ -308,7 +308,7 @@ impl<'a> Display for BlockStatement<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LetStatement<'a> {
     pub token: Token<'a>,
     pub name: Identifier<'a>,
@@ -338,7 +338,7 @@ impl<'a> Display for LetStatement<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ReturnStatement<'a> {
     pub token: Token<'a>,
     pub return_value: Option<Expressions<'a>>,
@@ -362,7 +362,7 @@ impl<'a> Display for ReturnStatement<'a> {
         }
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExpressionStatement<'a> {
     pub token: Token<'a>,
     pub expression: Option<Expressions<'a>>,
@@ -387,7 +387,7 @@ impl<'a> Display for ExpressionStatement<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Boolean<'a> {
     pub token: Token<'a>,
     pub value: bool,

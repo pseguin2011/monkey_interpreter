@@ -160,3 +160,53 @@ fn test_bang_operator() {
         panic!()
     }
 }
+
+#[test]
+fn test_if_else_expressions() {
+    let tests = [
+        ("if (true) { 10 }", 10),
+        ("if (1) { 10 }", 10),
+        ("if (1 < 2) { 10 }", 10),
+        ("if (1 > 2) { 10 } else { 20 }", 20),
+        ("if (1 < 2) { 10 } else { 20 }", 10),
+    ];
+    // tests that have an expected null output
+    let null_tests = [("if (1 > 2) { 10 }"), ("if (false) { 10 }")];
+
+    let mut evaluation_failed = false;
+
+    for (input, expected) in tests {
+        if let Some(evaluated) = test_eval(input) {
+            if !test_integer_object(evaluated, expected) {
+                eprintln!("could not evaluate {}", input);
+                evaluation_failed = true;
+            }
+        } else {
+            eprintln!("The evaluation did not succeed");
+            evaluation_failed = true;
+        }
+    }
+
+    for input in null_tests {
+        if let Some(evaluated) = test_eval(input) {
+            if !test_null_object(evaluated) {
+                eprintln!("could not evaluate {}", input);
+                evaluation_failed = true;
+            }
+        } else {
+            eprintln!("The evaluation did not succeed");
+            evaluation_failed = true;
+        }
+    }
+    if evaluation_failed {
+        panic!()
+    }
+}
+
+fn test_null_object(obj: Objects) -> bool {
+    if let Objects::Null(_) = obj {
+        return true;
+    }
+    eprintln!("object is not NULL. got={:?}", obj);
+    false
+}
