@@ -42,6 +42,9 @@ fn eval_expression(expression: &Expressions<'static>) -> Option<Objects> {
         }
         Expressions::PrefixExpression(pref) => {
             if let Some(right) = eval(EvaluatorType::Expressions(pref.right.clone())) {
+                if is_error(&right) {
+                    return Some(right);
+                }
                 return Some(eval_prefix_expression(&pref.operator, right));
             }
             None
@@ -50,6 +53,12 @@ fn eval_expression(expression: &Expressions<'static>) -> Option<Objects> {
             if let Some((left, right)) =
                 eval_expression(&infix.left).zip(eval_expression(&infix.right))
             {
+                if is_error(&left) {
+                    return Some(left);
+                }
+                if is_error(&right) {
+                    return Some(right);
+                }
                 return Some(eval_infix_expression(&infix.operator, left, right));
             }
             None
@@ -72,6 +81,9 @@ fn eval_statement(statement: &Statements<'static>) -> Option<Objects> {
                 .as_ref()
                 .and_then(|val| eval_expression(&val))
             {
+                if is_error(&val) {
+                    return Some(val);
+                }
                 return Some(Objects::ReturnValue(Rc::new(ReturnValue { value: val })));
             }
             None
@@ -211,6 +223,9 @@ fn eval_integer_infix_expression(operator: &str, left: Objects, right: Objects) 
 
 fn eval_if_expression(ie: &IfExpression<'static>) -> Objects {
     if let Some(condition) = eval(EvaluatorType::Expressions(ie.condition.clone())) {
+        if is_error(&condition) {
+            return condition;
+        }
         if is_truthy(condition) {
             return eval(EvaluatorType::BlockStatement(ie.consequence.clone()))
                 .unwrap_or(Objects::Null(NULL));
@@ -235,6 +250,9 @@ fn is_truthy(obj: Objects) -> bool {
     }
 }
 
-// fn new_error(format: String, a: Objects) -> object::Error {
-//     return Error {message: format!(&format, ))}
-// }
+fn is_error(obj: &Objects) -> bool {
+    match obj {
+        Objects::Error(_) => true,
+        _ => false,
+    }
+}
