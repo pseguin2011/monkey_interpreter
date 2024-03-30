@@ -1,3 +1,5 @@
+use std::{rc::Rc, sync::Mutex};
+
 use crate::{
     lexer::Lexer,
     object::{Environment, Objects},
@@ -55,8 +57,8 @@ fn test_eval(input: &str) -> Option<Objects> {
         Some(p) => p,
         None => return None,
     };
-    let mut environment = Environment::new();
-    return evaluator::eval(super::EvaluatorType::Program(program), &mut environment);
+    let environment = Rc::new(Mutex::new(Environment::new()));
+    return evaluator::eval(super::EvaluatorType::Program(program), environment);
 }
 
 fn test_integer_object(obj: Objects, expected: i64) -> bool {
@@ -303,6 +305,60 @@ fn test_let_statement() {
         ("let a = 5 * 5; a;", 25),
         ("let a = 5; let b = a; b;", 5),
         ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
+    ];
+    let mut evaluation_failed = false;
+    for (input, expected) in tests {
+        if let Some(evaluated) = test_eval(input) {
+            if !test_integer_object(evaluated, expected) {
+                eprintln!(" could not evaluate {} ", input);
+                evaluation_failed = true;
+            }
+        } else {
+            eprintln!("The evaluation did not succeed");
+            evaluation_failed = true;
+        }
+    }
+    if evaluation_failed {
+        panic!()
+    }
+}
+
+#[test]
+fn test_function_object() {
+    let input = "fn(x) { x + 2; };";
+
+    match test_eval(input) {
+        Some(Objects::Function(f)) => {
+            if f.parameters.len() != 1 {
+                eprintln!("function has wrong parameters. got {:?}", f);
+                panic!()
+            }
+            if f.parameters[0].to_string() != "x".to_string() {
+                eprintln!("parameter is not 'x' got={}", f.parameters[0]);
+                panic!();
+            }
+            let expected_body = "(x + 2)";
+            if f.body.to_string() != expected_body.to_string() {
+                eprintln!("body is not {}, got={}", expected_body, f.body);
+                panic!();
+            }
+        }
+        e => {
+            eprintln!("object is not a Function, got={:?}", e);
+            panic!();
+        }
+    }
+}
+
+#[test]
+fn test_function_call_evaluation() {
+    let tests = [
+        ("let identity = fn(x) { x; }; identity(5);", 5),
+        ("let identity = fn(x) { return x; }; identity(5);", 5),
+        ("let double = fn(x) { x * 2; }; double(5);", 10),
+        ("let add = fn(x, y) { x + y; }; add(5, 5);", 10),
+        ("let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20),
+        ("fn(x) { x; }(5)", 5),
     ];
     let mut evaluation_failed = false;
     for (input, expected) in tests {

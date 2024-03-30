@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{io::Write, rc::Rc, sync::Mutex};
 
 use object::{Environment, Object};
 
@@ -17,6 +17,8 @@ fn main() {
     stdout.flush().unwrap();
 
     stdout.write_fmt(format_args!("{}", PROMPT)).unwrap();
+
+    let environment = Rc::new(Mutex::new(Environment::new()));
     loop {
         stdout.write_all(b"\n>>").unwrap();
         stdout.flush().unwrap();
@@ -34,19 +36,17 @@ fn main() {
             Some(program) => program,
             None => continue,
         };
-        let mut environment = Environment::new();
         if parser.errors().len() != 0 {
             print_parser_errors(parser.errors());
             continue;
         }
-        if let Some(evaluated) =
-            evaluator::eval(evaluator::EvaluatorType::Program(program), &mut environment)
-        {
+        if let Some(evaluated) = evaluator::eval(
+            evaluator::EvaluatorType::Program(program),
+            environment.clone(),
+        ) {
             stdout
                 .write_fmt(format_args!("{}", evaluated.inspect()))
                 .unwrap();
-        } else {
-            eprintln!("Evaluation failed");
         }
     }
 }

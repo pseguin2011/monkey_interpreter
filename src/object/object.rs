@@ -1,4 +1,8 @@
-use std::{fmt::Display, rc::Rc};
+use std::{fmt::Display, rc::Rc, sync::Mutex};
+
+use crate::parser::ast::{BlockStatement, Identifier};
+
+use super::Environment;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ObjectType {
@@ -6,6 +10,7 @@ pub enum ObjectType {
     Boolean,
     Null,
     Return,
+    Function,
     Error,
 }
 
@@ -17,6 +22,7 @@ impl Display for ObjectType {
             Self::Null => "NULL",
             Self::Integer => "INTEGER",
             Self::Error => "ERROR",
+            Self::Function => "FUNCTION",
         })
     }
 }
@@ -32,6 +38,7 @@ pub enum Objects {
     Boolean(Boolean),
     Null(Null),
     ReturnValue(Rc<ReturnValue>),
+    Function(Function),
     Error(Error),
 }
 
@@ -42,6 +49,7 @@ impl Object for Objects {
             Self::Boolean(b) => b.inspect(),
             Self::Null(n) => n.inspect(),
             Self::ReturnValue(r) => r.inspect(),
+            Self::Function(f) => f.inspect(),
             Self::Error(e) => e.inspect(),
         }
     }
@@ -51,6 +59,7 @@ impl Object for Objects {
             Self::Boolean(b) => b.object_type(),
             Self::Null(n) => n.object_type(),
             Self::ReturnValue(r) => r.object_type(),
+            Self::Function(f) => f.object_type(),
             Self::Error(e) => e.object_type(),
         }
     }
@@ -121,5 +130,29 @@ impl Object for Error {
     }
     fn object_type(&self) -> ObjectType {
         return ObjectType::Error;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Function {
+    pub parameters: Vec<Identifier<'static>>,
+    pub body: BlockStatement<'static>,
+    pub env: Rc<Mutex<Environment>>,
+}
+
+impl Object for Function {
+    fn inspect(&self) -> String {
+        format!(
+            "fn({}) {{\n{}\n}}",
+            self.parameters
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<String>>()
+                .join(", "),
+            self.body
+        )
+    }
+    fn object_type(&self) -> ObjectType {
+        ObjectType::Function
     }
 }
