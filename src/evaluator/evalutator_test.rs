@@ -376,3 +376,23 @@ fn test_function_call_evaluation() {
         panic!()
     }
 }
+
+#[test]
+fn test_closures() {
+    let input = "
+        let newadder = fn(x) {
+            fn(y) { x + y };
+        };
+        let addtwo = newadder(2);
+        addtwo(2);
+    ";
+    if let Some(evaluated) = test_eval(input) {
+        if !test_integer_object(evaluated, 4) {
+            eprintln!(" could not evaluate {} ", input);
+            panic!()
+        }
+    } else {
+        eprintln!("The evaluation did not succeed");
+        panic!()
+    }
+}

@@ -22,8 +22,14 @@ impl Environment {
         env
     }
 
-    pub fn get(&self, name: &str) -> Option<&Objects> {
-        self.store.get(name)
+    pub fn get(&self, name: &str) -> Option<Objects> {
+        if let Some(inner) = self.store.get(name) {
+            return Some(inner.clone());
+        }
+        if let Some(outer) = self.outer.clone() {
+            return outer.lock().unwrap().get(name);
+        }
+        None
     }
 
     pub fn set(&mut self, name: String, val: Objects) {

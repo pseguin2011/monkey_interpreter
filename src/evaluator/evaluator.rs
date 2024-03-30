@@ -342,10 +342,9 @@ fn eval_identifier(ident: &Identifier<'static>, environment: Rc<Mutex<Environmen
 fn apply_function(func: Objects, args: Vec<Objects>) -> Option<Objects> {
     if let Objects::Function(object) = func {
         let extended_env = extend_function_env(&object, &args);
-        if let Some(evaluated) = eval(
-            EvaluatorType::BlockStatement(Rc::new(object.body)),
-            Rc::new(Mutex::new(extended_env)),
-        ) {
+        if let Some(evaluated) =
+            eval_block_statements(&object.body, Rc::new(Mutex::new(extended_env)))
+        {
             return Some(unwrap_return_value(evaluated));
         }
         None
