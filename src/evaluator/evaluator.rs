@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::{
-    object::{self, Boolean, Integer, Null, Objects},
+    object::{self, Boolean, Integer, Null, Objects, ReturnValue},
     parser::ast::{
         self, BlockStatement, ExpressionStatement, Expressions, IfExpression, Program, Statements,
     },
@@ -26,7 +26,6 @@ pub fn eval(node: EvaluatorType<'static>) -> Option<Objects> {
         // TODO we need to handle the statements later
         EvaluatorType::Statements(s) => eval_statement(&s),
         EvaluatorType::BlockStatement(b) => return eval_statements(b.statements.clone()),
-        _ => None,
     }
 }
 
@@ -67,6 +66,16 @@ fn eval_statement(statement: &Statements<'static>) -> Option<Objects> {
             expression: Some(e),
             ..
         }) => return eval_expression(&e),
+        Statements::ReturnStatement(r) => {
+            if let Some(val) = r
+                .return_value
+                .as_ref()
+                .and_then(|val| eval_expression(&val))
+            {
+                return Some(Objects::ReturnValue(Rc::new(ReturnValue { value: val })));
+            }
+            None
+        }
         _ => None,
     }
 }
@@ -74,7 +83,10 @@ fn eval_statement(statement: &Statements<'static>) -> Option<Objects> {
 fn eval_statements(stmts: Vec<Statements<'static>>) -> Option<Objects> {
     let mut result = None;
     for statement in stmts {
-        result = eval(EvaluatorType::Statements(Rc::new(statement)));
+        result = eval_statement(&statement);
+        if let Some(Objects::ReturnValue(return_value)) = result {
+            return Some(return_value.value.clone());
+        }
     }
     result
 }

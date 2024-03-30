@@ -210,3 +210,28 @@ fn test_null_object(obj: Objects) -> bool {
     eprintln!("object is not NULL. got={:?}", obj);
     false
 }
+
+#[test]
+fn test_return_statements() {
+    let tests = [
+        ("return 10;", 10),
+        ("return 10; 9;", 10),
+        ("return 2 * 5; 9;", 10),
+        ("9; return 2 * 5; 9;", 10),
+    ];
+    let mut evaluation_failed = false;
+    for (input, expected) in tests {
+        if let Some(evaluated) = test_eval(input) {
+            if !test_integer_object(evaluated, expected) {
+                eprintln!(" could not evaluate {} ", input);
+                evaluation_failed = true;
+            }
+        } else {
+            eprintln!("The evaluation did not succeed");
+            evaluation_failed = true;
+        }
+    }
+    if evaluation_failed {
+        panic!()
+    }
+}
