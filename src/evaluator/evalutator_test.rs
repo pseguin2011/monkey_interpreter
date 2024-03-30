@@ -218,6 +218,10 @@ fn test_return_statements() {
         ("return 10; 9;", 10),
         ("return 2 * 5; 9;", 10),
         ("9; return 2 * 5; 9;", 10),
+        (
+            "\nif (10 > 1) {\n\tif (10 > 1) {\n\t\treturn 10;\n\t}\n\treturn 1;\n}",
+            10,
+        ),
     ];
     let mut evaluation_failed = false;
     for (input, expected) in tests {

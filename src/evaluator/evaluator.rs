@@ -21,11 +21,11 @@ pub enum EvaluatorType<'a> {
 
 pub fn eval(node: EvaluatorType<'static>) -> Option<Objects> {
     match node {
-        EvaluatorType::Program(p) => return eval_statements(p.statements),
+        EvaluatorType::Program(p) => eval_program(&p),
         EvaluatorType::Expressions(e) => return eval_expression(&e),
         // TODO we need to handle the statements later
         EvaluatorType::Statements(s) => eval_statement(&s),
-        EvaluatorType::BlockStatement(b) => return eval_statements(b.statements.clone()),
+        EvaluatorType::BlockStatement(b) => return eval_block_statements(&b),
     }
 }
 
@@ -80,12 +80,23 @@ fn eval_statement(statement: &Statements<'static>) -> Option<Objects> {
     }
 }
 
-fn eval_statements(stmts: Vec<Statements<'static>>) -> Option<Objects> {
+fn eval_program(program: &Program<'static>) -> Option<Objects> {
     let mut result = None;
-    for statement in stmts {
+    for statement in &program.statements {
         result = eval_statement(&statement);
         if let Some(Objects::ReturnValue(return_value)) = result {
             return Some(return_value.value.clone());
+        }
+    }
+    result
+}
+
+fn eval_block_statements(block: &BlockStatement<'static>) -> Option<Objects> {
+    let mut result = None;
+    for statement in &block.statements {
+        result = eval_statement(&statement);
+        if let Some(Objects::ReturnValue(_)) = result {
+            return result;
         }
     }
     result
