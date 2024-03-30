@@ -1,9 +1,10 @@
 use std::rc::Rc;
 
 use crate::{
-    object::{self, Boolean, Integer, Null, Object, Objects, ReturnValue},
+    object::{self, Boolean, Environment, Integer, Null, Object, Objects, ReturnValue},
     parser::ast::{
-        self, BlockStatement, ExpressionStatement, Expressions, IfExpression, Program, Statements,
+        self, BlockStatement, ExpressionStatement, Expressions, Identifier, IfExpression, Program,
+        Statements,
     },
 };
 
@@ -19,17 +20,20 @@ pub enum EvaluatorType<'a> {
     BlockStatement(Rc<BlockStatement<'a>>),
 }
 
-pub fn eval(node: EvaluatorType<'static>) -> Option<Objects> {
+pub fn eval(node: EvaluatorType<'static>, environment: &mut Environment) -> Option<Objects> {
     match node {
-        EvaluatorType::Program(p) => eval_program(&p),
-        EvaluatorType::Expressions(e) => return eval_expression(&e),
+        EvaluatorType::Program(p) => eval_program(&p, environment),
+        EvaluatorType::Expressions(e) => return eval_expression(&e, environment),
         // TODO we need to handle the statements later
-        EvaluatorType::Statements(s) => eval_statement(&s),
-        EvaluatorType::BlockStatement(b) => return eval_block_statements(&b),
+        EvaluatorType::Statements(s) => eval_statement(&s, environment),
+        EvaluatorType::BlockStatement(b) => return eval_block_statements(&b, environment),
     }
 }
 
-fn eval_expression(expression: &Expressions<'static>) -> Option<Objects> {
+fn eval_expression(
+    expression: &Expressions<'static>,
+    environment: &mut Environment,
+) -> Option<Objects> {
     match expression {
         Expressions::IntegerLiteral(i) => {
             return Some(Objects::Integer(object::Integer { value: i.value }));
@@ -41,7 +45,7 @@ fn eval_expression(expression: &Expressions<'static>) -> Option<Objects> {
             return Some(Objects::Boolean(FALSE))
         }
         Expressions::PrefixExpression(pref) => {
-            if let Some(right) = eval(EvaluatorType::Expressions(pref.right.clone())) {
+            if let Some(right) = eval(EvaluatorType::Expressions(pref.right.clone()), environment) {
                 if is_error(&right) {
                     return Some(right);
                 }
@@ -50,8 +54,8 @@ fn eval_expression(expression: &Expressions<'static>) -> Option<Objects> {
             None
         }
         Expressions::InfixExpression(infix) => {
-            if let Some((left, right)) =
-                eval_expression(&infix.left).zip(eval_expression(&infix.right))
+            if let Some((left, right)) = eval_expression(&infix.left, environment)
+                .zip(eval_expression(&infix.right, environment))
             {
                 if is_error(&left) {
                     return Some(left);
@@ -63,23 +67,27 @@ fn eval_expression(expression: &Expressions<'static>) -> Option<Objects> {
             }
             None
         }
-        Expressions::IfExpression(if_exp) => return Some(eval_if_expression(if_exp)),
+        Expressions::IfExpression(if_exp) => return Some(eval_if_expression(if_exp, environment)),
+        Expressions::Identifier(ident) => return Some(eval_identifier(ident, environment)),
         // TODO we need to handle the expressions later
         _ => None,
     }
 }
 
-fn eval_statement(statement: &Statements<'static>) -> Option<Objects> {
+fn eval_statement(
+    statement: &Statements<'static>,
+    environment: &mut Environment,
+) -> Option<Objects> {
     match statement {
         Statements::ExpressionStatement(ExpressionStatement {
             expression: Some(e),
             ..
-        }) => return eval_expression(&e),
+        }) => return eval_expression(&e, environment),
         Statements::ReturnStatement(r) => {
             if let Some(val) = r
                 .return_value
                 .as_ref()
-                .and_then(|val| eval_expression(&val))
+                .and_then(|val| eval_expression(&val, environment))
             {
                 if is_error(&val) {
                     return Some(val);
@@ -88,14 +96,27 @@ fn eval_statement(statement: &Statements<'static>) -> Option<Objects> {
             }
             None
         }
+        Statements::LetStatement(l) => {
+            if let Some(val) = l
+                .value
+                .as_ref()
+                .and_then(|let_exp| eval_expression(&let_exp, environment))
+            {
+                if is_error(&val) {
+                    return Some(val);
+                }
+                environment.set(l.name.value.clone(), val);
+            }
+            return None;
+        }
         _ => None,
     }
 }
 
-fn eval_program(program: &Program<'static>) -> Option<Objects> {
+fn eval_program(program: &Program<'static>, environment: &mut Environment) -> Option<Objects> {
     let mut result = None;
     for statement in &program.statements {
-        result = eval_statement(&statement);
+        result = eval_statement(&statement, environment);
         match result {
             Some(Objects::ReturnValue(return_value)) => {
                 return Some(return_value.value.clone());
@@ -107,10 +128,13 @@ fn eval_program(program: &Program<'static>) -> Option<Objects> {
     result
 }
 
-fn eval_block_statements(block: &BlockStatement<'static>) -> Option<Objects> {
+fn eval_block_statements(
+    block: &BlockStatement<'static>,
+    environment: &mut Environment,
+) -> Option<Objects> {
     let mut result = None;
     for statement in &block.statements {
-        result = eval_statement(&statement);
+        result = eval_statement(&statement, environment);
         if let Some(Objects::ReturnValue(_) | Objects::Error(_)) = result {
             return result;
         }
@@ -221,20 +245,27 @@ fn eval_integer_infix_expression(operator: &str, left: Objects, right: Objects) 
     }
 }
 
-fn eval_if_expression(ie: &IfExpression<'static>) -> Objects {
-    if let Some(condition) = eval(EvaluatorType::Expressions(ie.condition.clone())) {
+fn eval_if_expression(ie: &IfExpression<'static>, environment: &mut Environment) -> Objects {
+    if let Some(condition) = eval(
+        EvaluatorType::Expressions(ie.condition.clone()),
+        environment,
+    ) {
         if is_error(&condition) {
             return condition;
         }
         if is_truthy(condition) {
-            return eval(EvaluatorType::BlockStatement(ie.consequence.clone()))
-                .unwrap_or(Objects::Null(NULL));
+            return eval(
+                EvaluatorType::BlockStatement(ie.consequence.clone()),
+                environment,
+            )
+            .unwrap_or(Objects::Null(NULL));
         }
-        if let Some(alt) = ie
-            .alternative
-            .clone()
-            .and_then(|alt| eval(EvaluatorType::BlockStatement(Rc::new(alt.clone()))))
-        {
+        if let Some(alt) = ie.alternative.clone().and_then(|alt| {
+            eval(
+                EvaluatorType::BlockStatement(Rc::new(alt.clone())),
+                environment,
+            )
+        }) {
             return alt;
         }
     }
@@ -254,5 +285,14 @@ fn is_error(obj: &Objects) -> bool {
     match obj {
         Objects::Error(_) => true,
         _ => false,
+    }
+}
+
+fn eval_identifier(ident: &Identifier<'static>, environment: &mut Environment) -> Objects {
+    match environment.get(&ident.value) {
+        Some(val) => val.clone(),
+        None => Objects::Error(object::Error {
+            message: format!("identifier not found: {}", ident.value),
+        }),
     }
 }

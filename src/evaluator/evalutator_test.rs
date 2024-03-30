@@ -1,4 +1,8 @@
-use crate::{lexer::Lexer, object::Objects, parser::Parser};
+use crate::{
+    lexer::Lexer,
+    object::{Environment, Objects},
+    parser::Parser,
+};
 
 use super::evaluator;
 
@@ -51,7 +55,8 @@ fn test_eval(input: &str) -> Option<Objects> {
         Some(p) => p,
         None => return None,
     };
-    return evaluator::eval(super::EvaluatorType::Program(program));
+    let mut environment = Environment::new();
+    return evaluator::eval(super::EvaluatorType::Program(program), &mut environment);
 }
 
 fn test_integer_object(obj: Objects, expected: i64) -> bool {
@@ -262,6 +267,7 @@ fn test_error_handling() {
             ",
             "unknown operator: BOOLEAN + BOOLEAN",
         ),
+        ("foobar", "identifier not found: foobar"),
     ];
     let mut evaluation_failed = false;
     for (input, expected) in tests {
@@ -283,6 +289,31 @@ fn test_error_handling() {
                 eprintln!("The evaluation did not succeed");
                 evaluation_failed = true;
             }
+        }
+    }
+    if evaluation_failed {
+        panic!()
+    }
+}
+
+#[test]
+fn test_let_statement() {
+    let tests = [
+        ("let a = 5; a;", 5),
+        ("let a = 5 * 5; a;", 25),
+        ("let a = 5; let b = a; b;", 5),
+        ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
+    ];
+    let mut evaluation_failed = false;
+    for (input, expected) in tests {
+        if let Some(evaluated) = test_eval(input) {
+            if !test_integer_object(evaluated, expected) {
+                eprintln!(" could not evaluate {} ", input);
+                evaluation_failed = true;
+            }
+        } else {
+            eprintln!("The evaluation did not succeed");
+            evaluation_failed = true;
         }
     }
     if evaluation_failed {

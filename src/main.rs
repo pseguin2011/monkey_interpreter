@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use object::Object;
+use object::{Environment, Object};
 
 use crate::{lexer::Lexer, parser::Parser};
 
@@ -34,11 +34,14 @@ fn main() {
             Some(program) => program,
             None => continue,
         };
+        let mut environment = Environment::new();
         if parser.errors().len() != 0 {
             print_parser_errors(parser.errors());
             continue;
         }
-        if let Some(evaluated) = evaluator::eval(evaluator::EvaluatorType::Program(program)) {
+        if let Some(evaluated) =
+            evaluator::eval(evaluator::EvaluatorType::Program(program), &mut environment)
+        {
             stdout
                 .write_fmt(format_args!("{}", evaluated.inspect()))
                 .unwrap();
