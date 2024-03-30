@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::{
-    object::{self, Boolean, Integer, Null, Objects, ReturnValue},
+    object::{self, Boolean, Integer, Null, Object, Objects, ReturnValue},
     parser::ast::{
         self, BlockStatement, ExpressionStatement, Expressions, IfExpression, Program, Statements,
     },
@@ -84,8 +84,12 @@ fn eval_program(program: &Program<'static>) -> Option<Objects> {
     let mut result = None;
     for statement in &program.statements {
         result = eval_statement(&statement);
-        if let Some(Objects::ReturnValue(return_value)) = result {
-            return Some(return_value.value.clone());
+        match result {
+            Some(Objects::ReturnValue(return_value)) => {
+                return Some(return_value.value.clone());
+            }
+            result @ Some(Objects::Error(_)) => return result,
+            _ => {}
         }
     }
     result
@@ -95,7 +99,7 @@ fn eval_block_statements(block: &BlockStatement<'static>) -> Option<Objects> {
     let mut result = None;
     for statement in &block.statements {
         result = eval_statement(&statement);
-        if let Some(Objects::ReturnValue(_)) = result {
+        if let Some(Objects::ReturnValue(_) | Objects::Error(_)) = result {
             return result;
         }
     }
@@ -106,7 +110,9 @@ fn eval_prefix_expression(operator: &str, right: Objects) -> Objects {
     match operator {
         "!" => Objects::Boolean(eval_bang_operator(right)),
         "-" => eval_minus_prefix_operator_expression(right),
-        _ => Objects::Null(NULL),
+        _ => Objects::Error(object::Error {
+            message: format!("unknown operator: {}{}", operator, right.object_type()),
+        }),
     }
 }
 
@@ -127,7 +133,22 @@ fn eval_infix_expression(operator: &str, left: Objects, right: Objects) -> Objec
         ("!=", Objects::Boolean(left), Objects::Boolean(right)) => Objects::Boolean(Boolean {
             value: left.value != right.value,
         }),
-        _ => Objects::Null(NULL),
+        (_, a, b) if a.object_type() != b.object_type() => Objects::Error(object::Error {
+            message: format!(
+                "type mismatch: {} {} {}",
+                left.object_type(),
+                operator,
+                right.object_type()
+            ),
+        }),
+        _ => Objects::Error(object::Error {
+            message: format!(
+                "unknown operator: {} {} {}",
+                left.object_type(),
+                operator,
+                right.object_type()
+            ),
+        }),
     }
 }
 
@@ -145,7 +166,9 @@ fn eval_minus_prefix_operator_expression(object: Objects) -> Objects {
         object.value = -object.value;
         Objects::Integer(object)
     } else {
-        Objects::Null(NULL)
+        Objects::Error(object::Error {
+            message: format!("unknown operator: -{}", object.object_type()),
+        })
     }
 }
 
@@ -175,7 +198,14 @@ fn eval_integer_infix_expression(operator: &str, left: Objects, right: Objects) 
         ("!=", Objects::Integer(left), Objects::Integer(right)) => Objects::Boolean(Boolean {
             value: left.value != right.value,
         }),
-        _ => Objects::Null(NULL),
+        (_, left, right) => Objects::Error(object::Error {
+            message: format!(
+                "unknown operator: {} {} {}",
+                left.object_type(),
+                operator,
+                right.object_type()
+            ),
+        }),
     }
 }
 
@@ -204,3 +234,7 @@ fn is_truthy(obj: Objects) -> bool {
         _ => true,
     }
 }
+
+// fn new_error(format: String, a: Objects) -> object::Error {
+//     return Error {message: format!(&format, ))}
+// }

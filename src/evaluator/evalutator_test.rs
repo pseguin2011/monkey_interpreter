@@ -239,3 +239,53 @@ fn test_return_statements() {
         panic!()
     }
 }
+
+#[test]
+fn test_error_handling() {
+    let tests = [
+        ("5 + true;", "type mismatch: INTEGER + BOOLEAN"),
+        ("5 + true; 5;", "type mismatch: INTEGER + BOOLEAN"),
+        ("-true", "unknown operator: -BOOLEAN"),
+        ("true + false;", "unknown operator: BOOLEAN + BOOLEAN"),
+        ("5; true + false; 5", "unknown operator: BOOLEAN + BOOLEAN"),
+        (
+            "if (10 > 1) { true + false; }",
+            "unknown operator: BOOLEAN + BOOLEAN",
+        ),
+        (
+            "if (10 > 1) {
+            if (10 > 1) {
+            return true + false;
+            }
+            return 1;
+            }
+            ",
+            "unknown operator: BOOLEAN + BOOLEAN",
+        ),
+    ];
+    let mut evaluation_failed = false;
+    for (input, expected) in tests {
+        match test_eval(input) {
+            Some(Objects::Error(e)) => {
+                if e.message != expected {
+                    eprintln!(
+                        "wrong error message. expected={}, got={} ",
+                        expected, e.message
+                    );
+                    evaluation_failed = true;
+                }
+            }
+            Some(o) => {
+                eprintln!("no error object returned. got={:?}", o);
+                evaluation_failed = true;
+            }
+            None => {
+                eprintln!("The evaluation did not succeed");
+                evaluation_failed = true;
+            }
+        }
+    }
+    if evaluation_failed {
+        panic!()
+    }
+}

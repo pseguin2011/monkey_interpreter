@@ -1,10 +1,24 @@
-use std::rc::Rc;
+use std::{fmt::Display, rc::Rc};
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum ObjectType {
     Integer,
     Boolean,
     Null,
     Return,
+    Error,
+}
+
+impl Display for ObjectType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Boolean => "BOOLEAN",
+            Self::Return => "RETURN",
+            Self::Null => "NULL",
+            Self::Integer => "INTEGER",
+            Self::Error => "ERROR",
+        })
+    }
 }
 
 pub trait Object {
@@ -18,6 +32,7 @@ pub enum Objects {
     Boolean(Boolean),
     Null(Null),
     ReturnValue(Rc<ReturnValue>),
+    Error(Error),
 }
 
 impl Object for Objects {
@@ -27,6 +42,7 @@ impl Object for Objects {
             Self::Boolean(b) => b.inspect(),
             Self::Null(n) => n.inspect(),
             Self::ReturnValue(r) => r.inspect(),
+            Self::Error(e) => e.inspect(),
         }
     }
     fn object_type(&self) -> ObjectType {
@@ -35,6 +51,7 @@ impl Object for Objects {
             Self::Boolean(b) => b.object_type(),
             Self::Null(n) => n.object_type(),
             Self::ReturnValue(r) => r.object_type(),
+            Self::Error(e) => e.object_type(),
         }
     }
 }
@@ -90,5 +107,19 @@ impl Object for ReturnValue {
     }
     fn inspect(&self) -> String {
         self.value.inspect()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Error {
+    pub message: String,
+}
+
+impl Object for Error {
+    fn inspect(&self) -> String {
+        format!("ERROR: {}", self.message)
+    }
+    fn object_type(&self) -> ObjectType {
+        return ObjectType::Error;
     }
 }
